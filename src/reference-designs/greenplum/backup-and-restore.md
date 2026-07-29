@@ -2,7 +2,7 @@
 
 ## Overview
 
-vSAN protects the data against hardware failure in place ([Section 7](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster)), but it cannot protect against logical or human error, or against total loss of the cluster or rack, because it replicates a mistaken deletion as faithfully as good data. Backup and restore is the layer that covers those gaps, and it is the mechanism behind the DR escalation paths in Sections [7.4](./storage-architecture.md#storage-failure-behavior-physical-disk-failure) and [8](./rack-design.md#rack-design-for-greenplum-clusters). The two layers are complementary; it does not replace the other.
+vSAN protects the data against hardware failure in place ([Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster)), but it cannot protect against logical or human error, or against total loss of the cluster or rack, because it replicates a mistaken deletion as faithfully as good data. Backup and restore is the layer that covers those gaps, and it is the mechanism behind the DR escalation paths in the [Storage Failure Behavior: Physical Disk Failure](./storage-architecture.md#storage-failure-behavior-physical-disk-failure) and [Rack Design for Greenplum Clusters](./rack-design.md#rack-design-for-greenplum-clusters) sections. The two layers are complementary; it does not replace the other.
 
 Greenplum uses a parallel, MPP-aware framework, `gpbackup` and `gprestore`, in which the coordinator captures metadata while every segment writes its own slice of data in parallel, to local storage or a storage plugin. This scales with the cluster instead of bottlenecking on the coordinator, which is why it is the method used throughout this architecture. The non-parallel `pg_dump` utilities route everything through the coordinator and are special-case only.
 
@@ -31,7 +31,7 @@ Command syntax and configuration beyond the workflows shown here are in the Tanz
 Two rules govern incremental sets and are treated as constraints:
 
 * All backups in a set must share consistent options and one storage target; `gpbackup` enforces this.  
-* Changing the segment configuration (a `gpexpand`, covered in [Section 9](./scalability-capacity-planning.md#horizontal-expansion-with-gpexpand)) invalidates the incremental chain. A fresh full backup is required afterward.
+* Changing the segment configuration (a `gpexpand`, covered in [Horizontal Expansion with gpexpand](./scalability-capacity-planning.md#horizontal-expansion-with-gpexpand)) invalidates the incremental chain. A fresh full backup is required afterward.
 
 On restore, `gprestore` resolves the chain from a single target timestamp: it restores each append-optimized table from its most recent version in the set and heap tables from the latest backup.
 
@@ -128,7 +128,7 @@ For any restore to succeed, the destination must meet the following. This is the
 | Greenplum major version | Same major version as the backup | Yes. Cross-version is a migration capability, not a DR path. |
 | Backup/restore tooling | Recent enough to support the operation (resize restore needs current tooling) | Yes (version floor) |
 | Storage capacity | Enough to hold the restored data | Adequate, not identical |
-| Compute / memory | Enough to run the workload, sized per [Section 5](./vsphere-cluster-design.md#vsphere-cluster-and-compute-design) and [Section 7](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster) | Adequate, not identical |
+| Compute / memory | Enough to run the workload, sized per [vSphere Cluster and Compute Design](./vsphere-cluster-design.md#vsphere-cluster-and-compute-design) and [Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster) | Adequate, not identical |
 | Segment count | Must match only for a same-size restore (Scenario 2) | No for resize restore (Scenario 3) |
 | Hardware sizing | Host count, segments per host, node spec may differ | No |
 | Backup access | Destination can reach the backup (same bucket/credentials for S3) | Yes |

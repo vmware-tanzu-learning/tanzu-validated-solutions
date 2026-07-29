@@ -8,7 +8,7 @@ The design is built around three objectives:
 * **Controlled failure behavior.** Clear, well-understood outcomes when a host or VM fails, aligned with how Greenplum itself behaves.  
 * **Operational clarity.** A firm line between infrastructure responsibilities (restart, capacity, placement) and database responsibilities (cluster integrity, recovery).
 
-Two assumptions carry through the section. The cluster is dedicated to Greenplum which is strongly recommended, and the workload is a low-to-medium concurrency mix that is predominantly analytical (OLAP). The high-availability topology itself is not restated as an assumption here, it is established in [Section 4.6](./resilience-topology.md#when-mirroring-is-still-the-right-choice), and this section builds on the mirrorless baseline defined there..
+Two assumptions carry through the section. The cluster is dedicated to Greenplum which is strongly recommended, and the workload is a low-to-medium concurrency mix that is predominantly analytical (OLAP). The high-availability topology itself is not restated as an assumption here, it is established in [When Mirroring Is Still the Right Choice](./resilience-topology.md#when-mirroring-is-still-the-right-choice), and this section builds on the mirrorless baseline defined there..
 
 ## vSphere Cluster Topology
 
@@ -16,10 +16,10 @@ Two assumptions carry through the section. The cluster is dedicated to Greenplum
 
 Greenplum should always run on a vSphere cluster dedicated to it. Co-locating Greenplum with other workloads introduces CPU scheduling contention, memory pressure, NUMA imbalance, and unpredictable latency, all of which act directly on query execution. The relationship also runs the other way: because Greenplum consumes CPU, memory, and network aggressively by design, it will disrupt any neighbor sharing the same hosts.
 
-This requirement maps directly to the workload characteristics established earlier in [Section 3](./workload-characteristics.md#greenplum-workload-characteristics):
+This requirement maps directly to the workload characteristics established earlier in [Greenplum Workload Characteristics](./workload-characteristics.md#greenplum-workload-characteristics):
 
-* From Sections [3.3](./workload-characteristics.md#concurrency-and-parallelism), [3.4](./workload-characteristics.md#cpu-usage-patterns), and [3.5](./workload-characteristics.md#memory-usage-patterns), segment hosts run at sustained high CPU and consume memory aggressively, so any competing workload induces CPU ready time and memory contention.  
-* From Section [3.7](./workload-characteristics.md#network-traffic-characteristics), the interconnect will use all the network throughput available to it and is intolerant of the packet loss and latency variance that a noisy neighbor introduces.
+* From the [Concurrency and Parallelism](./workload-characteristics.md#concurrency-and-parallelism), [CPU Usage Patterns](./workload-characteristics.md#cpu-usage-patterns), and [Memory Usage Patterns](./workload-characteristics.md#memory-usage-patterns) sections, segment hosts run at sustained high CPU and consume memory aggressively, so any competing workload induces CPU ready time and memory contention.  
+* From the [Network Traffic Characteristics](./workload-characteristics.md#network-traffic-characteristics) section, the interconnect will use all the network throughput available to it and is intolerant of the packet loss and latency variance that a noisy neighbor introduces.
 
 The **design position** is therefore **Greenplum cluster = vSphere cluster.** The Greenplum system runs in a dedicated cluster or workload domain with no non-Greenplum workloads, and general-purpose or shared virtualization clusters are not an acceptable platform for it.
 
@@ -42,9 +42,9 @@ The reason the production baseline is six hosts rather than four is not only abo
 * A **5-host** cluster can reach **FTT=2, but only through RAID-1 mirroring** (three copies, ~3x capacity). RAID-6 is not yet available at this host count. Five hosts is therefore a viable production size for an environment that needs two-failure tolerance and accepts the mirroring capacity cost, but it is not the efficient path.  
 * A **6-host** cluster is the first point at which **FTT=2 via RAID-6** becomes achievable, at 1.5x, and it is also the point at which FTT=1 RAID-5 improves to the 4+1 scheme at 1.25x. The step from single to double failure tolerance therefore costs only 20 percent more raw capacity here, which is what makes six hosts the efficient production baseline rather than merely a possible one.
 
-Because a mirrorless production cluster should be able to survive a second failure inside a rebuild window (the reasoning is developed in [Section 7.2](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines)), and because FTT=2 through RAID-6 requires six hosts, six hosts is the true production baseline. Four hosts is a valid POC size precisely because POC and development workloads might not require FTT=2. This links the compute sizing here to the storage protection policy in [Section 7.2](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines) and the admission-control matching rule in [Section 5.7](#vsphere-ha-configuration-recommendations).
+Because a mirrorless production cluster should be able to survive a second failure inside a rebuild window (the reasoning is developed in [Minimum Disk Layout and SPBM Guidelines](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines)), and because FTT=2 through RAID-6 requires six hosts, six hosts is the true production baseline. Four hosts is a valid POC size precisely because POC and development workloads might not require FTT=2. This links the compute sizing here to the storage protection policy in [Minimum Disk Layout and SPBM Guidelines](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines) and the admission-control matching rule in [vSphere HA Configuration Recommendations](#vsphere-ha-configuration-recommendations).
 
-**Note:** The number of Greenplum segment hosts is not the same as the number of ESXi hosts. Because segment VMs are aligned to NUMA nodes ([Section 5.2](#cpu-architecture-numa-awareness-and-vnuma-configuration)), a dual-socket ESXi host runs one segment VM per NUMA node. As a working rule, the segment-host count is roughly the ESXi host count multiplied by the NUMA nodes per host, reduced by the capacity set aside for the coordinators and for failover headroom. This relationship should be applied consistently wherever host and segment counts appear, including the rack designs in [Section 8](./rack-design.md#rack-design-for-greenplum-clusters).
+**Note:** The number of Greenplum segment hosts is not the same as the number of ESXi hosts. Because segment VMs are aligned to NUMA nodes ([CPU Architecture, NUMA Awareness, and vNUMA Configuration](#cpu-architecture-numa-awareness-and-vnuma-configuration)), a dual-socket ESXi host runs one segment VM per NUMA node. As a working rule, the segment-host count is roughly the ESXi host count multiplied by the NUMA nodes per host, reduced by the capacity set aside for the coordinators and for failover headroom. This relationship should be applied consistently wherever host and segment counts appear, including the rack designs in [Rack Design for Greenplum Clusters](./rack-design.md#rack-design-for-greenplum-clusters).
 
 Every ESXi host in the cluster should be identical, because Greenplum's slowest-segment behavior turns any hardware asymmetry into systematic skew. Hosts should match on:
 
@@ -69,7 +69,7 @@ The principles are:
 * **No segment VM should have more vCPUs than there are physical cores in one NUMA node.** Crossing that line forces the VM to span nodes and reintroduces remote-memory latency.  
 * **The Coordinator and Standby Coordinator VMs are also sized to stay NUMA-local.**
 
-Mapping back to [Section 3](./workload-characteristics.md#greenplum-workload-characteristics): from Sections 3.3, 3.4, and 3.5, high concurrency and heavy memory use are the normal state, so cross-NUMA memory access shows up as consistent extra latency, visible as query elongation and skew rather than as a clean failure. From Section 3.9, generic overcommit and NUMA-agnostic placement are not acceptable defaults here.
+Mapping back to [Greenplum Workload Characteristics](./workload-characteristics.md#greenplum-workload-characteristics): from the [Concurrency and Parallelism](./workload-characteristics.md#concurrency-and-parallelism), [CPU Usage Patterns](./workload-characteristics.md#cpu-usage-patterns), and [Memory Usage Patterns](./workload-characteristics.md#memory-usage-patterns) sections, high concurrency and heavy memory use are the normal state, so cross-NUMA memory access shows up as consistent extra latency, visible as query elongation and skew rather than as a clean failure. From the [Why Generic Virtualization Defaults Fail](./workload-characteristics.md#why-generic-virtualization-defaults-fail) section, generic overcommit and NUMA-agnostic placement are not acceptable defaults here.
 
 ### vNUMA Configuration
 
@@ -114,18 +114,18 @@ Alongside that, the reclaim mechanisms must be disabled or prevented from acting
 * Transparent page sharing and memory compression for these VMs  
 * Host swapping under all normal operating conditions
 
-This maps to [Section 3.5](./workload-characteristics.md#memory-usage-patterns) and [Section 3.6](./workload-characteristics.md#storage-access-patterns), once memory is constrained or reclaimed, queries spill to disk, and those spills add storage and network I/O that degrades performance across the whole cluster rather than on one VM. From [Section 3.9](./workload-characteristics.md#why-generic-virtualization-defaults-fail), memory overcommit and reclaim conflict directly with Greenplum's execution model.
+This maps to [Memory Usage Patterns](./workload-characteristics.md#memory-usage-patterns) and [Storage Access Patterns](./workload-characteristics.md#storage-access-patterns), once memory is constrained or reclaimed, queries spill to disk, and those spills add storage and network I/O that degrades performance across the whole cluster rather than on one VM. From [Why Generic Virtualization Defaults Fail](./workload-characteristics.md#why-generic-virtualization-defaults-fail), memory overcommit and reclaim conflict directly with Greenplum's execution model.
 
 ### Overcommit Policy
 
 CPU overcommit is strongly discouraged on both segment hosts and coordinators. If used, it must be minimal (near 1:1 vCPU:pCPU only) and validated through workload testing, rather than assumed safe.   
 Memory overcommit is strictly prohibited for any Greenplum VM.
 
-Taken together with the reservations above, this is the concrete infrastructure enforcement of the principle from [Section 3](./workload-characteristics.md#greenplum-workload-characteristics) that Greenplum assumes predictable CPU and memory availability throughout query execution.
+Taken together with the reservations above, this is the concrete infrastructure enforcement of the principle from [Greenplum Workload Characteristics](./workload-characteristics.md#greenplum-workload-characteristics) that Greenplum assumes predictable CPU and memory availability throughout query execution.
 
 ## vSphere High Availability (HA)
 
-This subsection clarifies what vSphere HA does and does not do for a Greenplum cluster, mapping back to the failure sensitivity described in [Section 3.8](./workload-characteristics.md#failure-sensitivity). It also draws the responsibility boundary that the rest of the section depends on.
+This subsection clarifies what vSphere HA does and does not do for a Greenplum cluster, mapping back to the failure sensitivity described in [Failure Sensitivity](./workload-characteristics.md#failure-sensitivity). It also draws the responsibility boundary that the rest of the section depends on.
 
 ### Scope and Intent of vSphere HA
 
@@ -138,11 +138,11 @@ It is equally important to be clear about what it does not do:
 * It does not perform database failover or segment recovery.  
 * It does not check Greenplum cluster consistency before or after a restart.
 
-The conclusion is that vSphere HA is not a database HA mechanism. It reduces the time to restart a failed VM, and nothing more. Database-level recovery is handled by Greenplum's own mechanisms, including the Fault Tolerance Server and, for mirrorless clusters, the high availability service introduced in [Section 4.4.1](./resilience-topology.md#the-greenplum-high-availability-service-for-mirrorless-clusters). This split is the responsibility boundary at the center of this section: the infrastructure restores VMs and capacity, and the database team owns cluster integrity and recovery.
+The conclusion is that vSphere HA is not a database HA mechanism. It reduces the time to restart a failed VM, and nothing more. Database-level recovery is handled by Greenplum's own mechanisms, including the Fault Tolerance Server and, for mirrorless clusters, the high availability service introduced in [The Greenplum High Availability Service for Mirrorless Clusters](./resilience-topology.md#the-greenplum-high-availability-service-for-mirrorless-clusters). This split is the responsibility boundary at the center of this section: the infrastructure restores VMs and capacity, and the database team owns cluster integrity and recovery.
 
 ### Coordinator and Standby Semantics
 
-Greenplum runs one active Primary Coordinator and one Standby Coordinator kept current by WAL streaming. Promotion of the standby is explicit, not automatic. This aligns with [Section 3.8](./workload-characteristics.md#failure-sensitivity): a coordinator failure is visible to users as dropped connections and aborted queries, and recovery is a deliberate action rather than a transparent one.
+Greenplum runs one active Primary Coordinator and one Standby Coordinator kept current by WAL streaming. Promotion of the standby is explicit, not automatic. This aligns with [Failure Sensitivity](./workload-characteristics.md#failure-sensitivity): a coordinator failure is visible to users as dropped connections and aborted queries, and recovery is a deliberate action rather than a transparent one.
 
 #### Primary Coordinator VM Restart
 
@@ -209,7 +209,7 @@ Two segment failure classes matter here:
 * The loss of a segment process while its VM stays up, and   
 * The loss of the segment VM or its host. 
 
-The heavier host and disk failure classes are addressed later, host failure with the HA-DRS interaction in [Section 5.9](#physical-host-failure-and-recovery), and disk failure with the storage design in [Section 7](./storage-architecture.md#storage-failure-behavior-physical-disk-failure).
+The heavier host and disk failure classes are addressed later, host failure with the HA-DRS interaction in [Physical Host Failure and Recovery](#physical-host-failure-and-recovery), and disk failure with the storage design in [Storage Failure Behavior: Physical Disk Failure](./storage-architecture.md#storage-failure-behavior-physical-disk-failure).
 
 **Segment process failure.** When a single segment's process fails, for example on an out-of-memory kill or a backend crash, but the VM itself stays healthy, recovery is local and no vSphere action is involved. 
 
@@ -280,7 +280,7 @@ This is a deliberate design choice, not a limitation. Automatically retrying a f
 | ----- | ----- | ----- |
 | HA   | Enabled  | Required to restart failed coordinator/segment VMs after host loss. |
 | Admission control  | "Host failures the cluster tolerates" or dedicated failover hosts | Enforces real capacity reserve for Greenplum VM restart. |
-| Failures cluster tolerates  | Small clusters (4 to 5 hosts): 1.  Production clusters (6+ hosts): 2 | Implements N+1 / N+2. This must be matched to the vSAN FTT policy ([Section 7.2](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines)):  N+1 pairs with FTT=1,  N+2 pairs with FTT=2.  Setting N+2 on FTT=1 storage is inconsistent in a mirrorless design.  |
+| Failures cluster tolerates  | Small clusters (4 to 5 hosts): 1.  Production clusters (6+ hosts): 2 | Implements N+1 / N+2. This must be matched to the vSAN FTT policy ([Minimum Disk Layout and SPBM Guidelines](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines)):  N+1 pairs with FTT=1,  N+2 pairs with FTT=2.  Setting N+2 on FTT=1 storage is inconsistent in a mirrorless design.  |
 | Dedicated failover hosts  | Optional, recommended for most critical clusters  | Reserves whole hosts for HA restart rather than relying on spare capacity spread across busy hosts. |
 | VM restart priority  | Coordinator and Standby: High.  Segment VMs: Medium.  Utility VMs: Low  | Ensures the coordinators come up first, then segments, then everything else. |
 | VM / Application monitoring  | Disabled for Greenplum VMs  | Avoids infrastructure-driven restarts on transient database conditions. Greenplum services are managed by the database team. |
@@ -291,7 +291,7 @@ Two areas regarding HA configuration and Host Isolation Response need more than 
 
 **Admission control, reserved capacity, and matching to FTT**
 
-The capacity reserved for HA is not a spare pool that Greenplum can borrow against; it must be genuine, unused headroom, because Greenplum runs with zero CPU and memory overcommit. The reservation math from [Section 5.3](#memory-management-and-scheduling) is what makes this work, because every Greenplum VM has a full memory reservation, HA can only restart a failed host's VMs if that much capacity genuinely exists elsewhere.
+The capacity reserved for HA is not a spare pool that Greenplum can borrow against; it must be genuine, unused headroom, because Greenplum runs with zero CPU and memory overcommit. The reservation math from [Memory Management and Scheduling](#memory-management-and-scheduling) is what makes this work, because every Greenplum VM has a full memory reservation, HA can only restart a failed host's VMs if that much capacity genuinely exists elsewhere.
 
 * For 4-5 host clusters, configure   
   * "Host failures cluster tolerates = 1" or define 1 dedicated failover host   
@@ -304,7 +304,7 @@ The capacity reserved for HA is not a spare pool that Greenplum can borrow again
 
 **Admission control must be set in step with the vSAN FTT policy**, as these two protect different layers and a mismatch is governed by the weaker one. Admission control reserves compute capacity so VMs can restart; FTT reserves storage redundancy so the data survives.   
 In a mirrorless design, N+2 compute reservation is only meaningful if the storage is also FTT=2. Otherwise the second host failure loses the data before the reserved compute can be used, and the reserved compute is wasted.   
-Since FTT=2 through RAID-6 requires six hosts, N+2 admission control is a property of the six-plus-host production baseline, and the 4 to 5 host clusters run N+1 with FTT=1. The full rationale for pairing the compute and storage layers is in [Section 7.2](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines).
+Since FTT=2 through RAID-6 requires six hosts, N+2 admission control is a property of the six-plus-host production baseline, and the 4 to 5 host clusters run N+1 with FTT=1. The full rationale for pairing the compute and storage layers is in [Minimum Disk Layout and SPBM Guidelines](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines).
 
 **vSAN Storage Cluster and datastore heartbeat:**
 
@@ -329,22 +329,22 @@ DRS is valuable to Greenplum for one thing above all is getting initial placemen
 | Migration threshold | Low / Conservative | Minimize vMotion events. Preserve NUMA locality  |
 | VM-level DRS overrides  | Override GP VMs to Manual/Partially Automated  | Isolates the Greenplum VMs from any more aggressive cluster-wide DRS policy. |
 
-This maps back to the workload characteristics directly. From Sections [3.3](./workload-characteristics.md#concurrency-and-parallelism) and [3.7](./workload-characteristics.md#network-traffic-characteristics), a runtime vMotion breaks the NUMA locality that segment performance depends on and temporarily consumes the CPU and network headroom that motion-heavy queries need. From [Section 3.9](./workload-characteristics.md#why-generic-virtualization-defaults-fail), the generic "optimize for balance" behavior that suits mixed workloads is exactly what should not be applied to a Greenplum cluster.
+This maps back to the workload characteristics directly. From the [Concurrency and Parallelism](./workload-characteristics.md#concurrency-and-parallelism) and [Network Traffic Characteristics](./workload-characteristics.md#network-traffic-characteristics) sections, a runtime vMotion breaks the NUMA locality that segment performance depends on and temporarily consumes the CPU and network headroom that motion-heavy queries need. From the [Why Generic Virtualization Defaults Fail](./workload-characteristics.md#why-generic-virtualization-defaults-fail) section, the generic "optimize for balance" behavior that suits mixed workloads is exactly what should not be applied to a Greenplum cluster.
 
 ## Physical Host Failure and Recovery
 
 The moment that most tests a Greenplum cluster's design is a physical ESXi host failure, because it is where HA, DRS, vSAN, and Greenplum recovery all act at once. Understanding that interaction is what keeps the recovery orderly rather than turning it into churn.
 
-When a physical host fails, several Greenplum VMs are lost together. vSphere HA restarts them on the surviving hosts using the N-1 or N-2 capacity reserved for exactly this, and it honors the restart priority from [Section 5.7](#vsphere-ha-configuration-recommendations), so the coordinators come back before the segments. 
+When a physical host fails, several Greenplum VMs are lost together. vSphere HA restarts them on the surviving hosts using the N-1 or N-2 capacity reserved for exactly this, and it honors the restart priority from [vSphere HA Configuration Recommendations](#vsphere-ha-configuration-recommendations), so the coordinators come back before the segments. 
 
 The storage layer does the decisive work underneath, because 
 
 * vSAN holds redundant components of every affected VM's storage on other hosts  
 * Each restarted VM is served with its complete, current data despite the loss of the failed host. 
 
-Each restarted segment VM then recovers exactly as described in [Section 5.5](#segment-vm-restart-semantics), replaying its WAL from vSAN-backed storage and rejoining once FTS marks it up. The difference at host scale is orchestration rather than mechanism. Many VMs recover at once, the coordinators are restarted ahead of the segments by HA priority, and query interruption follows Sections [5.4](#vsphere-high-availability-ha) through [5.6](#impact-on-query-execution).
+Each restarted segment VM then recovers exactly as described in [Segment VM Restart Semantics](#segment-vm-restart-semantics), replaying its WAL from vSAN-backed storage and rejoining once FTS marks it up. The difference at host scale is orchestration rather than mechanism. Many VMs recover at once, the coordinators are restarted ahead of the segments by HA priority, and query interruption follows the [vSphere High Availability (HA)](#vsphere-high-availability-ha) through [Impact on Query Execution](#impact-on-query-execution) sections.
 
-In the background, vSAN rebuilds the components that were lost with the host onto healthy capacity, to restore full policy compliance. This rebuild competes for I/O with the recovering workload, which is one of the reasons the storage design keeps capacity headroom in reserve. That behavior belongs to the storage layer and is covered in [Section 7](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster).
+In the background, vSAN rebuilds the components that were lost with the host onto healthy capacity, to restore full policy compliance. This rebuild competes for I/O with the recovering workload, which is one of the reasons the storage design keeps capacity headroom in reserve. That behavior belongs to the storage layer and is covered in [Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster).
 
 The interaction to manage deliberately is between HA and DRS during this window:
 
@@ -352,7 +352,7 @@ The interaction to manage deliberately is between HA and DRS during this window:
 * DRS must not aggressively rebalance while the cluster is still degraded and the database team is running recovery. HA has just placed VMs where capacity allowed; DRS immediately churning them for the sake of balance would compound the disruption.  
 * The operational stance during recovery is therefore to relax or temporarily suspend DRS migrations, and to prioritize stability, meaning correct placement and sufficient capacity, over perfect balance.
 
-Once the failed host is repaired and returns, rebalancing can resume under the conservative DRS policy from [Section 5.8](#vsphere-drs-greenplum-specific-configuration), at a time that does not collide with active query windows.
+Once the failed host is repaired and returns, rebalancing can resume under the conservative DRS policy from [vSphere DRS - Greenplum-Specific Configuration](#vsphere-drs-greenplum-specific-configuration), at a time that does not collide with active query windows.
 
 ## VM Placement and Anti-Affinity Rules
 
@@ -364,7 +364,7 @@ The placement goals are:
 * Distribute segment VMs evenly across hosts, and across racks where the topology spans more than one, to avoid concentrating too much of the cluster's data on any single failure domain.  
 * Where a deployment does use mirrored segments, apply anti-affinity between the primary and mirror of the same content so they never share a host. In the mirrorless baseline of this architecture there are no mirror pairs to separate, but the even-distribution rule still applies so that a single host failure removes only a small, evenly-sized slice of the segments.
 
-These rules also interact with the capacity reservations from [Section 5.7](#vsphere-ha-configuration-recommendations): anti-affinity constraints where HA can restart a VM, so the reserved failover capacity has to exist on hosts that satisfy the rules. The rack-level and availability-zone dimension of placement is developed further in [Section 8](./rack-design.md#rack-design-for-greenplum-clusters).
+These rules also interact with the capacity reservations from [vSphere HA Configuration Recommendations](#vsphere-ha-configuration-recommendations): anti-affinity constraints where HA can restart a VM, so the reserved failover capacity has to exist on hosts that satisfy the rules. The rack-level and availability-zone dimension of placement is developed further in [Rack Design for Greenplum Clusters](./rack-design.md#rack-design-for-greenplum-clusters).
 
 ## Section Summary
 
@@ -376,4 +376,4 @@ Greenplum availability and data consistency rest instead on:
 * Conservative HA and DRS policies that respect NUMA locality and never overcommit, so recovery does not create fresh contention.  
 * Explicit, database-team-led recovery after a failure, so cluster integrity and query correctness are owned by the layer that understands them.
 
-Held together, these give the outcome the section set out to achieve: predictable performance in normal operation, controlled and well-understood behavior during a failure, and an operational boundary that leaves no ambiguity about who does what. The storage layer that underpins the durability this all depends on is the subject of [Section 7](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster), and the network design that carries the interconnect is [Section 6](./vds-design.md#virtual-distributed-switch-vds-design).
+Held together, these give the outcome the section set out to achieve: predictable performance in normal operation, controlled and well-understood behavior during a failure, and an operational boundary that leaves no ambiguity about who does what. The storage layer that underpins the durability this all depends on is the subject of [Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster), and the network design that carries the interconnect is [Virtual Distributed Switch (vDS) Design](./vds-design.md#virtual-distributed-switch-vds-design).

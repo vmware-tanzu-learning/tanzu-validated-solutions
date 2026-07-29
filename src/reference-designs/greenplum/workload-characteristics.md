@@ -12,11 +12,11 @@ The components behave as follows during a workload:
 
 The **Coordinator** is the entry point for all client connections, whether from SQL clients, JDBC or ODBC applications, or ETL tools. It parses queries, builds the distributed plan, and dispatches that plan to the segments. Its resource footprint is light compared to a segment, but it is a single, central point that every query passes through.
 
-The **Standby** **Coordinator** holds a synchronously maintained replica of the Coordinator's metadata and provides coordinator-level availability. Promotion of the standby is an explicit, operator-driven action rather than an automatic one, which is an important detail for the availability design in [Section 5.4.2](./vsphere-cluster-design.md#coordinator-and-standby-semantics).
+The **Standby** **Coordinator** holds a synchronously maintained replica of the Coordinator's metadata and provides coordinator-level availability. Promotion of the standby is an explicit, operator-driven action rather than an automatic one, which is an important detail for the availability design in [Coordinator and Standby Semantics](./vsphere-cluster-design.md#coordinator-and-standby-semantics).
 
-The **Segment** **instances** are where the real work happens. Each segment host runs several segment instances, and each instance owns its portion of the data and executes its fragment of the query in parallel with all the others. These are the components that consume the bulk of the CPU, memory, storage, and network resources on the platform. The decision on whether segments are deployed with an accompanying redundancy topology is a separate decision covered in [Section 4](./resilience-topology.md#greenplum-resilience-topology-on-vsphere-mirrored-and-mirrorless), the workload behavior described here applies to the segments that perform the query work in either case.
+The **Segment** **instances** are where the real work happens. Each segment host runs several segment instances, and each instance owns its portion of the data and executes its fragment of the query in parallel with all the others. These are the components that consume the bulk of the CPU, memory, storage, and network resources on the platform. The decision on whether segments are deployed with an accompanying redundancy topology is a separate decision covered in [Greenplum Resilience Topology on vSphere: Mirrored and Mirrorless](./resilience-topology.md#greenplum-resilience-topology-on-vsphere-mirrored-and-mirrorless), the workload behavior described here applies to the segments that perform the query work in either case.
 
-The **Interconnect** is the high-speed, all-to-all fabric segments used to communicate during query execution. It carries the motion operators that redistribute intermediate results between segments, and its characteristics are examined in detail in [Section 3.7](#network-traffic-characteristics).
+The **Interconnect** is the high-speed, all-to-all fabric segments used to communicate during query execution. It carries the motion operators that redistribute intermediate results between segments, and its characteristics are examined in detail in [Network Traffic Characteristics](#network-traffic-characteristics).
 
 The single most important behavior to take away from this section is the following. Because a query stage is not complete until every segment assigned to it has finished, Greenplum performance is governed by the slowest participating segment. If one segment is short on CPU, low on memory, waiting on storage, or blocked on the network, the entire query slows down or stalls along with it. The faster segments cannot make up for a slow one; they wait.
 
@@ -49,7 +49,7 @@ The motion phase is the most infrastructure-sensitive part of Greenplum query ex
 * Microbursts and queue drops at the NIC or switch, which are easy to miss in average utilization figures but directly hit motion-heavy queries.
 
 In practice, parallel queries rely on real-time synchronization across nodes; while minor network jitter is absorbed automatically, unrecovered network packet loss or storage stalls will trigger interconnect timeouts and abort the query.   
-Progress is bounded by the slowest communication path, so the design goal for the network and storage layers is not just high bandwidth but consistent, low-variance behavior under bursty load. The network design that follows from this is detailed in [Section 3.7](#network-traffic-characteristics) and [Section 6](./vds-design.md#virtual-distributed-switch-vds-design), and the storage latency considerations in [Section 7](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster).
+Progress is bounded by the slowest communication path, so the design goal for the network and storage layers is not just high bandwidth but consistent, low-variance behavior under bursty load. The network design that follows from this is detailed in [Network Traffic Characteristics](#network-traffic-characteristics) and [Virtual Distributed Switch (vDS) Design](./vds-design.md#virtual-distributed-switch-vds-design), and the storage latency considerations in [Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster).
 
 ## Concurrency and Parallelism
 
@@ -68,7 +68,7 @@ The defining characteristic on a segment host is **process density** which refer
 
 This density is not incidental, it is fundamental to how Greenplum's MPP model achieves throughput. It is also the root cause of the CPU and memory behavior detailed in the next two sections.
 
-**Infrastructure implication:** Greenplum assumes near-exclusive, predictable access to CPU and memory on segment hosts during active queries. Shared or heavily overcommitted models break that assumption. The same process density is why scheduling and placement matter so much, and why segment VMs are aligned to NUMA boundaries in [Section 5.2](./vsphere-cluster-design.md#cpu-architecture-numa-awareness-and-vnuma-configuration).
+**Infrastructure implication:** Greenplum assumes near-exclusive, predictable access to CPU and memory on segment hosts during active queries. Shared or heavily overcommitted models break that assumption. The same process density is why scheduling and placement matter so much, and why segment VMs are aligned to NUMA boundaries in [CPU Architecture, NUMA Awareness, and vNUMA Configuration](./vsphere-cluster-design.md#cpu-architecture-numa-awareness-and-vnuma-configuration).
 
 ## CPU Usage Patterns
 
@@ -94,7 +94,7 @@ A CPU slowdown on one segment does not stay local, it elongates the entire query
 
 Segment hosts must be provisioned with dedicated, non-overcommitted physical CPU. Any overcommitment or uncontrolled scheduling contention shows up as variable query latency and unstable throughput.   
 vCPUs should map to physical cores within a NUMA node, and oversubscription must be avoided.   
-The vNUMA configuration and CPU reservation that enforce this are defined in [Sections 5.2](./vsphere-cluster-design.md#cpu-architecture-numa-awareness-and-vnuma-configuration) and [5.3](./vsphere-cluster-design.md#memory-management-and-scheduling).
+The vNUMA configuration and CPU reservation that enforce this are defined in [CPU Architecture, NUMA Awareness, and vNUMA Configuration](./vsphere-cluster-design.md#cpu-architecture-numa-awareness-and-vnuma-configuration) and [Memory Management and Scheduling](./vsphere-cluster-design.md#memory-management-and-scheduling).
 
 ## Memory Usage Patterns
 
@@ -116,7 +116,7 @@ When spills occur across multiple hosts at once, the impact is cluster-wide rath
 
 **Infrastructure implication:** 
 
-Segment hosts must be provisioned with **fully reserved, physically available memory**. Memory overcommit, ballooning, compression, and swapping must be disabled by reserving 100% of the VM's memory, and NUMA alignment with full reservation is a prerequisite. The reservation and overcommit policy that enforce this are defined in [Section 5.3](./vsphere-cluster-design.md#memory-management-and-scheduling).
+Segment hosts must be provisioned with **fully reserved, physically available memory**. Memory overcommit, ballooning, compression, and swapping must be disabled by reserving 100% of the VM's memory, and NUMA alignment with full reservation is a prerequisite. The reservation and overcommit policy that enforce this are defined in [Memory Management and Scheduling](./vsphere-cluster-design.md#memory-management-and-scheduling).
 
 ## Storage Access Patterns
 
@@ -148,7 +148,7 @@ The characteristic that ties this together is that **query execution is synchron
 * Object storage rebalancing  
 * Snapshot merges or garbage collection
 
-**Infrastructure implication:** Storage platforms tuned for small random I/O and judged mainly on average latency tend to underperform for Greenplum. The design priority is consistent, predictable latency under sustained parallel load and the avoidance of latency spikes, not a headline IOPS figure. The storage architecture that follows is covered in [Section 7](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster).
+**Infrastructure implication:** Storage platforms tuned for small random I/O and judged mainly on average latency tend to underperform for Greenplum. The design priority is consistent, predictable latency under sustained parallel load and the avoidance of latency spikes, not a headline IOPS figure. The storage architecture that follows is covered in [Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster).
 
 ## Network Traffic Characteristics
 
@@ -162,11 +162,11 @@ Key attributes:
 
 The failure behavior is that congestion does not degrade Greenplum gracefully. When motion traffic is dropped or delayed, the affected operators stall, and because stages are synchronized, a stalled operator holds up the whole stage. A single congested NIC or oversubscribed uplink can therefore turn into a cluster wide performance problem, and queries may abort rather than slow cleanly.
 
-**Infrastructure implication:** For the interconnect, low loss and predictable latency matter as much as bandwidth. The network should be designed to behave in an effectively lossless way for interconnect traffic under bursty load. The vDS design, traffic-class separation, and teaming policy that deliver this are covered in [Section 6](./vds-design.md#virtual-distributed-switch-vds-design)
+**Infrastructure implication:** For the interconnect, low loss and predictable latency matter as much as bandwidth. The network should be designed to behave in an effectively lossless way for interconnect traffic under bursty load. The vDS design, traffic-class separation, and teaming policy that deliver this are covered in [Virtual Distributed Switch (vDS) Design](./vds-design.md#virtual-distributed-switch-vds-design)
 
 ## Failure Sensitivity
 
-Greenplum's MPP model makes query execution sensitive to the health of every participating segment, because a stage cannot complete until all of its segments finish. The loss of a single segment mid-query usually causes that in-flight query to fail rather than degrade. How the cluster returns to service afterward depends on the high-availability topology and the platform recovery mechanisms, covered in the next [section 4](./resilience-topology.md#greenplum-resilience-topology-on-vsphere-mirrored-and-mirrorless).
+Greenplum's MPP model makes query execution sensitive to the health of every participating segment, because a stage cannot complete until all of its segments finish. The loss of a single segment mid-query usually causes that in-flight query to fail rather than degrade. How the cluster returns to service afterward depends on the high-availability topology and the platform recovery mechanisms, covered in the next [Greenplum Resilience Topology on vSphere: Mirrored and Mirrorless](./resilience-topology.md#greenplum-resilience-topology-on-vsphere-mirrored-and-mirrorless).
 
 The failure types worth calling out:
 
@@ -175,7 +175,7 @@ The failure types worth calling out:
 * **Storage latency spikes.** Increases query duration on affected segments  
 * **Host failure.** Takes its segments offline, so active queries using them fail. The cluster must then detect the failure, mark segments down, restart or recover the affected VMs, and resynchronize before normal service resumes.
 
-**Infrastructure implication:** Recovery mechanisms, including vSphere HA, DRS, and vSAN rebuild, must be designed and scheduled so they do not repeatedly interrupt motion-heavy queries. These behaviors and the recovery windows they imply are detailed in the high-availability topology section that follows and in [Sections 5.4](./vsphere-cluster-design.md#vsphere-high-availability-ha) through 5.6, with storage rebuild considerations in [Section 7](./storage-architecture.md#storage-failure-behavior-physical-disk-failure).
+**Infrastructure implication:** Recovery mechanisms, including vSphere HA, DRS, and vSAN rebuild, must be designed and scheduled so they do not repeatedly interrupt motion-heavy queries. These behaviors and the recovery windows they imply are detailed in the high-availability topology section that follows and in [vSphere High Availability (HA)](./vsphere-cluster-design.md#vsphere-high-availability-ha) through 5.6, with storage rebuild considerations in [Storage Failure Behavior: Physical Disk Failure](./storage-architecture.md#storage-failure-behavior-physical-disk-failure).
 
 ## Why Generic Virtualization Defaults Fail
 
@@ -200,9 +200,9 @@ Taken together, these imperatives are the reason this document does not treat Gr
 
 | Design imperative | Driven by | Implemented in |
 | :---- | :---- | :---- |
-| Predictable CPU scheduling with NUMA locality, and no CPU overcommit | [Sections 3.3](#concurrency-and-parallelism), [3.4](#cpu-usage-patterns) | Section 5.2, 5.3 |
-| Zero memory overcommit, with full reservation and no reclaim | [Section 3.5](#memory-usage-patterns) | [Section 5.3](./vsphere-cluster-design.md#memory-management-and-scheduling) |
-| Effectively lossless, low-variance east-west networking | [Sections 3.2](#query-execution-and-motion), [3.7](#network-traffic-characteristics) | [Section 6](./vds-design.md#virtual-distributed-switch-vds-design) |
-| Storage designed for latency consistency rather than peak IOPS | [Section 3.6](#storage-access-patterns) | [Section 7](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster) |
-| Recovery mechanisms that respect running queries | [Section 3.8](#failure-sensitivity) | HA topology section, Sections 4.4 to 4.6, Section 6 |
-| Placement that preserves Greenplum's failure domains | Sections 3.1, 3.8 | [Section 5.10](./vsphere-cluster-design.md#vm-placement-and-anti-affinity-rules), [Section 7](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster) |
+| Predictable CPU scheduling with NUMA locality, and no CPU overcommit | [Concurrency and Parallelism](#concurrency-and-parallelism), [CPU Usage Patterns](#cpu-usage-patterns) | [CPU Architecture, NUMA Awareness, and vNUMA Configuration](./vsphere-cluster-design.md#cpu-architecture-numa-awareness-and-vnuma-configuration), [Memory Management and Scheduling](./vsphere-cluster-design.md#memory-management-and-scheduling) |
+| Zero memory overcommit, with full reservation and no reclaim | [Memory Usage Patterns](#memory-usage-patterns) | [Memory Management and Scheduling](./vsphere-cluster-design.md#memory-management-and-scheduling) |
+| Effectively lossless, low-variance east-west networking | [Query Execution and Motion](#query-execution-and-motion), [Network Traffic Characteristics](#network-traffic-characteristics) | [Virtual Distributed Switch (vDS) Design](./vds-design.md#virtual-distributed-switch-vds-design) |
+| Storage designed for latency consistency rather than peak IOPS | [Storage Access Patterns](#storage-access-patterns) | [Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster) |
+| Recovery mechanisms that respect running queries | [Failure Sensitivity](#failure-sensitivity) | HA topology section, the [Mirrorless Greenplum on vSphere](./resilience-topology.md#mirrorless-greenplum-on-vsphere) through [When Mirroring Is Still the Right Choice](./resilience-topology.md#when-mirroring-is-still-the-right-choice) sections, [Virtual Distributed Switch (vDS) Design](./vds-design.md#virtual-distributed-switch-vds-design) |
+| Placement that preserves Greenplum's failure domains | [Greenplum Architecture Overview](#greenplum-architecture-overview), [Failure Sensitivity](#failure-sensitivity) | [VM Placement and Anti-Affinity Rules](./vsphere-cluster-design.md#vm-placement-and-anti-affinity-rules), [Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster) |

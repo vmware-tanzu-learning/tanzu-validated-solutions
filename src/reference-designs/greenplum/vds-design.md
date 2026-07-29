@@ -2,11 +2,11 @@
 
 This section defines how virtual networking is built for the Greenplum vSphere cluster using a dedicated vSphere Distributed Switch (vDS) and VLAN-backed port groups. It explains how each traffic class (interconnect, vSAN, client, management, vMotion, and data operations) is isolated, and how uplinks and teaming policies are chosen to give the latency-critical flows deterministic, low-jitter paths that hold up under contention.
 
-The design is written so that an administrator with general vSphere knowledge can implement the prescribed port groups, VLANs, and NIC mappings without needing Greenplum-specific expertise. The reasoning behind each choice traces back to the network characteristics established in [Section 3.7](./workload-characteristics.md#network-traffic-characteristics).
+The design is written so that an administrator with general vSphere knowledge can implement the prescribed port groups, VLANs, and NIC mappings without needing Greenplum-specific expertise. The reasoning behind each choice traces back to the network characteristics established in [Network Traffic Characteristics](./workload-characteristics.md#network-traffic-characteristics).
 
 ## Design Objectives
 
-Greenplum is a shared-nothing MPP system that generates intense east-west traffic between segment hosts and is highly sensitive to latency variance and packet loss, as established in [Section 3.7](./workload-characteristics.md#network-traffic-characteristics). The virtual network must therefore:
+Greenplum is a shared-nothing MPP system that generates intense east-west traffic between segment hosts and is highly sensitive to latency variance and packet loss, as established in [Network Traffic Characteristics](./workload-characteristics.md#network-traffic-characteristics). The virtual network must therefore:
 
 * Provide deterministic packet paths and predictable failover behavior, so motion traffic follows a known route and does not shift underneath a running query.  
 * Minimize processing overhead and avoid the jitter that dynamic, load-based teaming can introduce.  
@@ -291,7 +291,7 @@ Abbreviations used below:
 | Source | Destination | Port / Protocol | Description |
 | :---- | :---- | :---- | :---- |
 | ETL | Segments, Coordinator | TCP 8080 HTTP, TCP 9000 HTTPS | gpfdist and gpload parallel file transfer |
-| Segments, Coordinator | S3 endpoint | TCP 443, HTTPS | Backup and restore to S3, the preferred target ([Section 10](./backup-and-restore.md#greenplum-backup-and-restore)) |
+| Segments, Coordinator | S3 endpoint | TCP 443, HTTPS | Backup and restore to S3, the preferred target ([Greenplum Backup and Restore](./backup-and-restore.md#greenplum-backup-and-restore)) |
 | Segments, Coordinator | Data Domain | TCP/UDP 111, TCP 2049, 2052, 2051 | NFS portmapper, NFS, mountd, and replication, where Data Domain is used |
 | Coordinator | SMTP relay | TCP 25 or 587 | Optional backup completion email |
 
