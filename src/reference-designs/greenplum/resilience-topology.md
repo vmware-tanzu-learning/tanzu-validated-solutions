@@ -17,7 +17,7 @@ It helps to separate two ideas that are easy to conflate, because the mirrored v
 * **Durability** is protection of the data itself. If a disk or a host is lost, the data survives and can be read again. On this platform, durability is provided by vSAN, which keeps redundant copies of every storage object according to its configured policy.  
 * **Availability** is the ability of the cluster to keep serving, or to return to service quickly, after a component fails. This is about how fast queries can run again, not about whether the data still exists.
 
-The key insight is that Greenplum mirroring and vSAN redundancy both provide durability, but they provide availability very differently. Once vSAN is providing durability at the storage layer, the remaining question is simply how the cluster recovers its availability after a failure, and that is where the two topologies diverge.
+The key insight is that Greenplum mirroring and vSAN redundancy both provide durability, but they provide availability very differently. Once vSAN is providing durability at the storage layer, the remaining question is how the cluster recovers its availability after a failure, and that is where the two topologies diverge.
 
 ## Mirrored Greenplum
 
@@ -41,7 +41,7 @@ In a mirrorless deployment, segments run as primaries only, with no mirror copie
 
 Because there is no mirror to fail over to, availability after a host failure is restored by the vSphere platform rather than by the database. vSphere HA restarts the affected segment and coordinator VMs on surviving hosts, and once those VMs are back the affected segments are recovered so the cluster can resume serving queries. Greenplum provides a dedicated high availability service for mirrorless deployments on vSphere that works together with vSphere HA to coordinate this recovery, bringing the restarted segments back to a serving state after a host failure.
 
-The behavior to understand clearly is the difference in recovery path. When a host fails:
+The key behavior to understand is the difference in recovery path. When a host fails:
 
 * In-flight queries that were using segments on that host fail, in the same way they would in any segment-loss scenario.  
 * The data is safe throughout, because vSAN has maintained redundant copies at the storage layer.  
@@ -62,7 +62,7 @@ The behavior to understand clearly is the difference in recovery path. When a ho
 
 ### The Greenplum High Availability Service for Mirrorless Clusters
 
-As a mirrorless cluster has no mirror segment to fail over to, it needs a mechanism that notices when a primary segment has become unavailable and drives its recovery. Greenplum provides this as a dedicated high availability service for mirrorless deployments, implemented as a **lightweight systemd service “**`greenplum-postmaster`**”.** that runs on the cluster hosts. The `greenplum-postmaster` service monitors the primary segments of a Greenplum cluster to initiate automatic recovery if they become unavailable. This is required if running Greenplum without mirroring.
+As a mirrorless cluster has no mirror segment to fail over to, it needs a mechanism that notices when a primary segment has become unavailable and drives its recovery. Greenplum provides this as a dedicated high availability service for mirrorless deployments, implemented as a **lightweight systemd service "**`greenplum-postmaster`**".** that runs on the cluster hosts. The `greenplum-postmaster` service monitors the primary segments of a Greenplum cluster to initiate automatic recovery if they become unavailable. This is required if running Greenplum without mirroring.
 
 Understanding how it fits together depends on separating three roles that each do one part of the work:
 
@@ -72,7 +72,7 @@ Understanding how it fits together depends on separating three roles that each d
 
 The essential idea is that durability and recovery are handled at different layers but rely on each other. vSAN guarantees the data is always intact and current; the high availability service and the database's own crash-recovery machinery use that intact data to bring a returned segment back into service. This is why a mirrorless cluster can recover from segment and host failures without a second in-database copy: the authoritative copy is the vSAN-protected data, and the service automates the work of reconnecting a recovered segment to the cluster.
 
-How this plays out for each class of failure, a single segment process, a segment VM, a physical ESXi host, and a physical disk, is examined in the compute and high availability design in [Section 5](./vsphere-cluster-design.md#vsphere-high-availability-ha), and the storage behavior that underpins it in [Section 7](./storage-architecture.md#storage-failure-behavior-physical-disk-failure). The key point for this section is simply that mirrorless Greenplum is not unmanaged, it pairs vSAN durability with a purpose-built recovery service so that the absence of a database mirror does not mean the absence of automated recovery.
+How this plays out for each class of failure, a single segment process, a segment VM, a physical ESXi host, and a physical disk, is examined in the compute and high availability design in [Section 5](./vsphere-cluster-design.md#vsphere-high-availability-ha), and the storage behavior that underpins it in [Section 7](./storage-architecture.md#storage-failure-behavior-physical-disk-failure). The key point for this section is that mirrorless Greenplum is not unmanaged: it pairs vSAN durability with a purpose-built recovery service so that the absence of a database mirror does not mean the absence of automated recovery.
 
 ## Why This Architecture Recommends Mirrorless on vSphere with vSAN
 

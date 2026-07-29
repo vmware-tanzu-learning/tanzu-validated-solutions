@@ -13,7 +13,7 @@ High-volume external loads are typically driven from one or more dedicated ETL h
 **Coordinator layer:** The Primary Coordinator manages client sessions, owns the global catalog, and performs query parsing, planning, and dispatch. It holds no user data.   
 A Standby Coordinator maintains a synchronously replicated copy of the coordinator's state and can be promoted if the primary fails permanently. The coordinator role is retained in all deployments described in this document, its restart and failover semantics are detailed in [Section 5.4.2](./vsphere-cluster-design.md#coordinator-and-standby-semantics)
 
-**Segment layer (MPP execution):** User data is distributed across multiple segment hosts, each running several segment instances. Segments execute their fragments of a query in parallel against local data and exchange data through the interconnect as the plan requires. This is where the bulk of query work such as scanning, joining, aggregating  actually happens.
+**Segment layer (MPP execution):** User data is distributed across multiple segment hosts, each running several segment instances. Segments execute their fragments of a query in parallel against local data and exchange data through the interconnect as the plan requires. This is where the bulk of query work such as scanning, joining, and aggregating happens.
 
 **Networking layer:** All Greenplum traffic is carried over a vSphere Distributed Switch (vDS). The interconnect is treated as a distinct traffic class and engineered for low latency and high bandwidth, since motion operators and data redistribution during query execution depend on it. The traffic classes, port groups, and teaming design are covered in [Section 6](./vds-design.md#virtual-distributed-switch-vds-design).
 
@@ -29,7 +29,7 @@ A Standby Coordinator maintains a synchronously replicated copy of the coordinat
 | Standby Coordinator | Synchronously replicated copy of coordinator state, promotable on permanent failure | Dedicated VM, placed on a different ESXi host (anti-affinity) |
 | Segment host | Hosts multiple segment instances; owns a slice of the distributed data | VM |
 | Segment instance | PostgreSQL process executing query fragments against local data | Process within a segment-host VM |
-| Interconnect | Motion / data exchange between segments during query execution | Dedicated vDS traffic class / port group (TCP 1025–65535) |
+| Interconnect | Motion / data exchange between segments during query execution | Dedicated vDS traffic class / port group (TCP 1025-65535) |
 | Data (segment + coordinator) | Persisted relational data and WAL | vSAN objects governed by SPBM |
 | ETL / load path | External ingest via `gpfdist` / `gpload` | ETL host(s) on the client-access network |
 

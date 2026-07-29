@@ -73,7 +73,7 @@ The VM must then satisfy two checks:
   **Key NUMA Note: Sub-NUMA Clustering (SNC / NPS)** On modern multi-core processors, a physical CPU socket is split into multiple hardware NUMA nodes. When sizing Segment Host VMs, ensure the VM fits within the **individual NUMA node boundary**, not just the physical CPU socket.  
 * **Even distribution across nodes.** The VM count per physical host must divide evenly across that host's NUMA nodes. On a two-socket host the segment VM count per host should therefore be even. Because query time is set by the slowest segment ([Section 3.1](./workload-characteristics.md#greenplum-architecture-overview)), uneven distribution translates directly into uneven query performance, so this architecture treats even distribution as a requirement rather than a preference.
 
-A third check, on failover capacity, is covered in “[Capacity Planning Methods](#capacity-planning-method)”.
+A third check, on failover capacity, is covered in "[Capacity Planning Methods](#capacity-planning-method)".
 
 ### Hyperthreading
 
@@ -212,7 +212,7 @@ And below six hosts, RAID-5 at FTT=1 already costs 1.5x, the same as RAID-6, wit
 **Key Storage Policy Note: Greenplum AO Compression vs. vSAN ESA Inline Compression:** To avoid redundant CPU cycles from double-compression, establish a clear compression policy:
 
 * **Database-Led Compression:** Use `zstd` at the Greenplum table level for historical AO partitions, and disable compression on the vSAN VMDK Storage Policy for data drives.  
-* **Infrastructure-Led Compression:** Keep Greenplum tables uncompressed and allow vSAN ESA’s inline compression engine to handle block-level compression transparently.
+* **Infrastructure-Led Compression:** Keep Greenplum tables uncompressed and allow vSAN ESA's inline compression engine to handle block-level compression transparently.
 
 ## Scaling Model: Vertical and Horizontal
 
@@ -224,7 +224,7 @@ Vertical scaling is the preferred response when the bottleneck is resource press
 
 * **CPU and memory changes are a cold operation** in this design. Hot-add is not used because it disturbs vNUMA presentation and full reservations. The sequence is to stop the database, power off the segment VMs in a maintenance window, resize, verify the new size still fits within a single NUMA node, and re-apply 100 percent CPU and memory reservations.  
 * **Disk changes are online.** Segment Data, WAL, and Temp VMDKs can be grown and their guest filesystems extended without downtime, and storage policy changes apply online while vSAN resynchronises in the background.  
-* **Database follow-up is required.** After a memory increase, the Greenplum memory limits must be raised so the database actually uses the added RAM, then validated with a controlled workload replay. Adding memory without this step changes nothing the database can see.
+* **Database follow-up is required.** After a memory increase, the Greenplum memory limits must be raised so the database uses the added RAM, then validated with a controlled workload replay. Adding memory without this step changes nothing the database can see.
 
 The ceiling is the NUMA size. Once a VM would need to span across NUMA nodes, or host memory, further vertical growth erodes the predictability this architecture is built on. That is the signal to scale horizontally.
 
@@ -291,7 +291,7 @@ Adding segments to a running cluster uses the `gpexpand` utility. On this platfo
 
 * Add ESXi hosts to the dedicated cluster, or free capacity on existing hosts, so new segment VMs can be placed with each VM fitting within a NUMA node and the VM count per host dividing evenly across nodes.  
 * Confirm the placement preserves coordinator and segment anti-affinity ([Section 5.10](./vsphere-cluster-design.md#vm-placement-and-anti-affinity-rules)).  
-* Re-run the failover fit check from “Operational Thresholds and Capacity Triggers” for the new host and VM counts.  
+* Re-run the failover fit check from "Operational Thresholds and Capacity Triggers" for the new host and VM counts.  
 * Recompute admission control for the new host count and confirm the storage policy remains consistent with it. Crossing certain host counts raises the achievable failure tolerance, so an expansion can improve resilience as well as capacity.  
 * Ensure the vSAN datastore has capacity for the added segments plus the rebuild reserve ([Section 7.3](./storage-architecture.md#platform-level-vsan-configuration)).
 

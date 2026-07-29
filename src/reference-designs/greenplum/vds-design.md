@@ -74,7 +74,7 @@ The following logical networks are used across ESXi hosts, Coordinator and Segme
 | vMotion | PG-vMotion | vMotion for planned maintenance |
 | Greenplum Interconnect | PG-GP-Interconnect | Segment to segment data exchange, motion operators |
 | Client Access/External Access | PG-GP-Client | Apps to Coordinator/Standby connections |
-| Data Operations | PG-GP-DataOps | ETL, gpfdist, backup/restore, etc. |
+| Data Operations | PG-GP-DataOps | ETL, gpfdist, and backup/restore traffic |
 | vSAN / vSAN Storage Cluster | PG-vSANClient | ESXi vmkernel traffic to vSAN datastores |
 
 Refer to [Greenplum Database Ports and Protocols documentation](https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-greenplum/7/greenplum-database/security-guide-topics-ports_and_protocols.html) for more details on ports and protocol usage.
@@ -84,7 +84,7 @@ Key principle:
 * Greenplum interconnect and vSAN traffic must never share VLANs or portgroups.  
 * Interconnect and vSAN each get their own VLAN, queues, and uplink assignments, preventing storage IO and motion operators from contending directly.
 
-All portgroups are VLAN‑backed on the vDS with no overlays on the data path.
+All portgroups are VLAN-backed on the vDS with no overlays on the data path.
 
 ## Uplink Teaming Policy
 
@@ -98,20 +98,20 @@ This may also be applied to Client Access for deterministic pathing in critical 
 
 ### Why Active/Standby Is Preferred
 
-Although vSphere supports Active/Active and Load-Based Teaming (LBT), these do not behave like true bandwidth aggregation for vmkernel and latency‑sensitive flows:
+Although vSphere supports Active/Active and Load-Based Teaming (LBT), these do not behave like true bandwidth aggregation for vmkernel and latency-sensitive flows:
 
 * vSAN and other vmkernel flows typically use a single active uplink at a time, LBT may move flows between uplinks over time.  
-* Dynamic uplink switching can introduce jitter, route changes, and out‑of‑order delivery that are difficult to diagnose for Greenplum motion traffic.  
-* LACP/MC‑LAG on ToR switches adds complexity and is not required for vSAN or Greenplum interconnect.   
+* Dynamic uplink switching can introduce jitter, route changes, and out-of-order delivery that are difficult to diagnose for Greenplum motion traffic.  
+* LACP/MC-LAG on ToR switches adds complexity and is not required for vSAN or Greenplum interconnect.   
   VMware guidance for vSAN strongly favors simple, deterministic teaming.
 
 Active/Standby provides:
 
 * Predictable packet paths (one known active uplink per portgroup/vmk).  
 * Simple, clean failover behavior only on physical link failure.  
-* No dependence on switch‑side LACP or proprietary MLAG behavior.
+* No dependence on switch-side LACP or proprietary MLAG behavior.
 
-This matches guidance for vSAN networking and aligns well with the Greenplum requirement for stable, low‑jitter paths.
+This matches guidance for vSAN networking and aligns well with the Greenplum requirement for stable, low-jitter paths.
 
 ### Uplink Usage
 
@@ -119,7 +119,7 @@ The mappings below assume dual-port NICs, since that is the most common building
 
 **Assumed NIC Layout:**
 
-For the sake of the reference architecture, we are assuming the Network card used has 2 Uplinks, and it’s very much possible that in production one may have NICs with 1/2/4 ports. 
+This reference architecture assumes NICs with 2 uplinks for the examples that follow.
 
 For 4 Uplinks Hosts:
 
@@ -132,39 +132,39 @@ For 6 Uplink Hosts:
 * NIC Card 2: vmnic2, vmnic3 @ 40/100 Gbps (higher bandwidth)  
 * NIC Card 3: vmnic4, vmnic5 @ 40/100 Gbps (higher bandwidth)
 
-**Note on mixed‑speed NICs**
+**Note on mixed-speed NICs**
 
-This Reference Architecture does not recommend deliberately sizing Greenplum clusters with lower‑bandwidth NICs for any traffic class. The designs shown here for 4‑uplink hosts assume a scenario where the server hardware already has a mixed NIC configuration (e.g., 2 × 10/25G and 2 × 40/100G).
+This Reference Architecture does not recommend deliberately sizing Greenplum clusters with lower-bandwidth NICs for any traffic class. The designs shown here for 4-uplink hosts assume a scenario where the server hardware already has a mixed NIC configuration (for example, 2 x 10/25G and 2 x 40/100G).
 
 If all NICs can be 25G or higher, that is strongly preferred and simplifies the design.
 
 * If mixed NIC speeds are unavoidable, the mappings in the further sections provide a safe way to:  
-  * Keep Greenplum Interconnect and vSAN Storage Cluster client traffic on the highest‑bandwidth NICs at all times.  
-  * Use lower‑bandwidth NICs only for management, vMotion, and optionally GP‑Client/DataOps.
+  * Keep Greenplum Interconnect and vSAN Storage Cluster client traffic on the highest-bandwidth NICs at all times.  
+  * Use lower-bandwidth NICs only for management, vMotion, and optionally GP-Client/DataOps.
 
-When hosts have homogeneous high‑bandwidth NICs, use them for all traffic classes as per the 6‑uplink table below. The split between ‘low‑bandwidth for mgmt’ and ‘high‑bandwidth for data’ is only for hardware that already ships with such a distinction, it is not a requirement or a cost‑optimization recommendation for new designs.
+When hosts have homogeneous high-bandwidth NICs, use them for all traffic classes as per the 6-uplink table below. The split between 'low-bandwidth for mgmt' and 'high-bandwidth for data' is only for hardware that already ships with such a distinction, it is not a requirement or a cost-optimization recommendation for new designs.
 
-#### 4‑Uplink Host Configuration (Minimum Production)
+#### 4-Uplink Host Configuration (Minimum Production)
 
 In this layout the two high-bandwidth ports on Card 2 carry both of the heavy flows, interconnect and vSAN, while Card 1 carries the lighter flows.
 
 **NIC Mapping:**
 
 * NIC Card 1 (10/25G):  
-  * vmnic0, vmnic1 – used for Management, vMotion, GP‑Client, DataOps (lower bandwidth).  
+  * vmnic0, vmnic1 - used for Management, vMotion, GP-Client, DataOps (lower bandwidth).  
 * NIC Card 2 (40/100G):  
-  * vmnic2, vmnic3 – used for GP‑Interconnect and vSAN Storage Cluster (heavy paths).
+  * vmnic2, vmnic3 - used for GP-Interconnect and vSAN Storage Cluster (heavy paths).
 
-**Portgroup → Uplink mapping (Active/Standby)**
+**Portgroup -> Uplink mapping (Active/Standby)**
 
 | Portgroup | Active Uplink | Primary Standby  | Secondary Standby | Notes |
 | ----- | ----- | ----- | ----- | ----- |
-| PG‑GP‑Interconnect  | vmnic2 | vmnic3 | vmnic 0 | Primary GP motion traffic. Always on high‑bandwidth NIC (Card 2), primary failover within the same card. Can fail over to low‑bandwidth uplink if Card 2 fails. (Priority set priority via NIOC) |
-| PG‑vSAN‑Client  | vmnic3 | vmnic2 | vmnic 1 | vSAN Storage Cluster vmkernel NICs Always on high‑bandwidth NIC (Card 2), primary failover within the same card.  Can fail over to low‑bandwidth uplink if Card 2 fails. (Priority set priority via NIOC) |
-| PG‑GP‑Client  | vmnic0 | vmnic1 | vmnic 3 | Client to coordinator. Primary on Card 1, primary failover within the same card.  Can fail over to high‑bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
-| PG-GP-DataOps | vmnic1 | vmnic0 | vmnic 3 | ETL/backup  traffic Primary on Card 1, primary failover within the same card.  Can fail over to high‑bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
-| PG‑vMotion | vmnic1 | vmnic0 | vmnic 2 | vMotion vmkernel. Confined to lower‑bandwidth NIC (Card 1), used only for planned maintenance. Primary on Card 1, primary failover within the same card.  Can fail over to high‑bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
-| PG‑Mgmt  | vmnic0 | vmnic1 | vmnic 3 | Mgmt vmk0. Confined to lower‑bandwidth NIC (Card 1). Primary on Card 1, primary failover within the same card.  Can fail over to high‑bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
+| PG-GP-Interconnect  | vmnic2 | vmnic3 | vmnic 0 | Primary GP motion traffic. Always on high-bandwidth NIC (Card 2), primary failover within the same card. Can fail over to low-bandwidth uplink if Card 2 fails. (Priority set priority via NIOC) |
+| PG-vSAN-Client  | vmnic3 | vmnic2 | vmnic 1 | vSAN Storage Cluster vmkernel NICs Always on high-bandwidth NIC (Card 2), primary failover within the same card.  Can fail over to low-bandwidth uplink if Card 2 fails. (Priority set priority via NIOC) |
+| PG-GP-Client  | vmnic0 | vmnic1 | vmnic 3 | Client to coordinator. Primary on Card 1, primary failover within the same card.  Can fail over to high-bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
+| PG-GP-DataOps | vmnic1 | vmnic0 | vmnic 3 | ETL/backup  traffic Primary on Card 1, primary failover within the same card.  Can fail over to high-bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
+| PG-vMotion | vmnic1 | vmnic0 | vmnic 2 | vMotion vmkernel. Confined to lower-bandwidth NIC (Card 1), used only for planned maintenance. Primary on Card 1, primary failover within the same card.  Can fail over to high-bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
+| PG-Mgmt  | vmnic0 | vmnic1 | vmnic 3 | Mgmt vmk0. Confined to lower-bandwidth NIC (Card 1). Primary on Card 1, primary failover within the same card.  Can fail over to high-bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
 
 **Network I/O Control (NIOC) Shares**
 
@@ -176,9 +176,9 @@ On the Card 2 high-bandwidth uplinks (vmnic2 and vmnic3):
 
 | Portgroup | Shares Value | Limit | Uplink MappingActive / Primary Standby / Secondary Standby |
 | ----- | ----- | ----- | ----- |
-| PG‑GP‑Interconnect  | 60 | None | vmnic 2 / vmnic 3 / vmnic 0 |
-| PG‑vSAN-Client  | 30 | None | vmnic 3 / vmnic 2 / vmnic 1 |
-| PG‑GP‑Client | 8 | None | vmnic 0 / vmnic 1 / vmnic2 |
+| PG-GP-Interconnect  | 60 | None | vmnic 2 / vmnic 3 / vmnic 0 |
+| PG-vSAN-Client  | 30 | None | vmnic 3 / vmnic 2 / vmnic 1 |
+| PG-GP-Client | 8 | None | vmnic 0 / vmnic 1 / vmnic2 |
 | PG-GP-DataOps | 2 | None | vmnic 1 / vmnic 0 / vmnic3 |
 
 On the Card 1 control uplinks (vmnic0 and vmnic1):
@@ -195,46 +195,46 @@ What these values buy you:
 * If Card 2 fails entirely, interconnect and vSAN fall back to the secondary standby on Card 1. Both heavy flows drop from 40/100G to 10/25G at the same time and share that card with management and vMotion. The shares still order traffic correctly, but they are now arbitrating a fraction of the designed bandwidth.  
 * This secondary standby exists to keep the storage path alive. Losing interconnect stops queries; losing the vSAN path can make VM storage inaccessible and take VMs down. A slow route to storage is the difference between a degraded cluster and a failed one.  
 * No performance expectation should be set for the Card 1 fallback state. The cluster stays available and data stays accessible, but queries may run many times longer and some may time out. It is a survival path for scheduling a repair, not an operating mode, and sizing must never assume it.  
-* Under normal conditions GP-Client runs on 10/25G, which is appropriate because analytic client traffic is control-heavy (session setup and result sets) rather than bandwidth-heavy. On failover to Card 2 it may actually see higher throughput, which is a harmless exception state.
+* Under normal conditions GP-Client runs on 10/25G, which is appropriate because analytic client traffic is control-heavy (session setup and result sets) rather than bandwidth-heavy. On failover to Card 2 it may see higher throughput, which is a harmless exception state.
 
 **Accepted risk of the 4-uplink design.** Both heavy flows depend on Card 2 for their normal-performance path, so a failure of the card as a whole (a dual-port NIC fault, a bad PCIe slot, or a driver failure) moves interconnect and vSAN onto the low-bandwidth card together. The secondary standby prevents this from halting the cluster, but it leaves the entire workload running in the severely degraded state described above until the card is replaced, so it is an emergency condition requiring immediate repair rather than a tolerable operating state. This is the fundamental limitation of the 4-uplink minimum, and it is the main reason the 6-uplink design is preferred for anything critical, since there interconnect and vSAN have dedicated pairs on separate cards and a card failure degrades one flow rather than both. Where 4 uplinks must be used and this risk matters, it can be reduced by drawing vmnic2 and vmnic3 from two separate physical dual-port cards rather than one, so that "Card 2" is really two cards and no single card carries both heavy flows.
 
-#### 6‑Uplink Host Configuration
+#### 6-Uplink Host Configuration
 
 The six-uplink layout removes the shared-card risk by giving interconnect and vSAN each their own dedicated high-bandwidth pair.
 
 **NIC Mapping:**
 
 * NIC Card 1 (10/25G):  
-  * vmnic0, vmnic1 - used for Management, vMotion, GP‑Client, DataOps (lower bandwidth, cheaper ports).  
+  * vmnic0, vmnic1 - used for Management, vMotion, GP-Client, DataOps (lower bandwidth, cheaper ports).  
 * NIC Card 2 (40/100G):  
   * vmnic2, vmnic3 - high bandwidth, data plane  
 * NIC Card 3 (40/100G):  
   * vmnic2, vmnic3 - high bandwidth, data plane
 
-**Portgroup → Uplink mapping (Active/Standby)**
+**Portgroup -> Uplink mapping (Active/Standby)**
 
 | Portgroup | Active Uplink | Standby Uplink | Notes |
 | ----- | ----- | ----- | ----- |
-| PG‑GP‑Interconnect  | vmnic2 | vmnic3 | Primary GP motion traffic.Dedicated high‑bandwidth pair for motion operators |
-| PG‑vSAN‑Client  | vmnic4 | vmnic5 | vSAN vmkernel NICs. Dedicated high‑bandwidth pair for storage IO |
-| PG‑GP‑Client  | vmnic3 | vmnic2 | Client to coordinator. Primary on Card 2. Client traffic on interconnect pair (low priority via NIOC) |
-| PG-GP-DataOps | vmnic5 | vmnic4 | ETL/backup on vSAN pair (low priority, and rate‑limited via NIOC) |
-| PG‑vMotion | vmnic1 | vmnic0 | vMotion vmkernel. Confined to lower‑bandwidth NIC (Card 1). |
-| PG‑Mgmt  | vmnic0 | vmnic1 | Mgmt vmk0. Confined to lower‑bandwidth NIC (Card 1). |
+| PG-GP-Interconnect  | vmnic2 | vmnic3 | Primary GP motion traffic.Dedicated high-bandwidth pair for motion operators |
+| PG-vSAN-Client  | vmnic4 | vmnic5 | vSAN vmkernel NICs. Dedicated high-bandwidth pair for storage IO |
+| PG-GP-Client  | vmnic3 | vmnic2 | Client to coordinator. Primary on Card 2. Client traffic on interconnect pair (low priority via NIOC) |
+| PG-GP-DataOps | vmnic5 | vmnic4 | ETL/backup on vSAN pair (low priority, and rate-limited via NIOC) |
+| PG-vMotion | vmnic1 | vmnic0 | vMotion vmkernel. Confined to lower-bandwidth NIC (Card 1). |
+| PG-Mgmt  | vmnic0 | vmnic1 | Mgmt vmk0. Confined to lower-bandwidth NIC (Card 1). |
 
 **Network I/O Control (NIOC) Shares**
 
-On high‑bandwidth uplinks (vmnic2‑5):
+On high-bandwidth uplinks (vmnic2-5):
 
 | Portgroup | Shares Value | Limit | Uplink MappingActive/Standby |
 | ----- | ----- | ----- | ----- |
-| PG‑GP‑Interconnect  | 80 | None | vmnic 2 / vmnic 3  |
-| PG‑GP‑Client  | 20 | None | vmnic 3 / vmnic 2  |
-| PG‑vSAN‑Client  | 80 | None | vmnic 4 / vmnic 5  |
+| PG-GP-Interconnect  | 80 | None | vmnic 2 / vmnic 3  |
+| PG-GP-Client  | 20 | None | vmnic 3 / vmnic 2  |
+| PG-vSAN-Client  | 80 | None | vmnic 4 / vmnic 5  |
 | PG-GP-DataOps | 20 | 50% | vmnic 5 / vmnic 4  |
 
-On control uplinks (vmnic0‑1):
+On control uplinks (vmnic0-1):
 
 | Portgroup | Shares Value | Limit | Uplink MappingActive/Standby |
 | ----- | ----- | ----- | ----- |

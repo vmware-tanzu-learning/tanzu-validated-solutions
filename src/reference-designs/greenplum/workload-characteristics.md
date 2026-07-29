@@ -4,7 +4,7 @@ This section describes the workload characteristics of Greenplum that directly d
 
 ## Greenplum Architecture Overview
 
-The previous section introduced the Greenplum components and showed how they map onto vSphere. This section looks at the same components with a different question in mind, not what they are, but how they consume CPU, memory, storage, and network resources while queries are actually running. That behavior is what the rest of this document is designed around.
+The previous section introduced the Greenplum components and showed how they map onto vSphere. This section looks at the same components with a different question in mind, not what they are, but how they consume CPU, memory, storage, and network resources while queries are running. That behavior is what the rest of this document is designed around.
 
 Greenplum is a shared-nothing MPP database. A query arrives at the Coordinator, where it is parsed and planned centrally, and is then broken into fragments that run in parallel across every participating segment. Each segment works only on the slice of data it owns locally, and segments exchange intermediate results with one another over the interconnect as the plan requires. The Coordinator (called the master in Greenplum 6 and earlier) performs very little data-intensive work of its own. It acts as the control and orchestration point rather than a place where large volumes of data are processed.
 
@@ -18,7 +18,7 @@ The **Segment** **instances** are where the real work happens. Each segment host
 
 The **Interconnect** is the high-speed, all-to-all fabric segments used to communicate during query execution. It carries the motion operators that redistribute intermediate results between segments, and its characteristics are examined in detail in [Section 3.7](#network-traffic-characteristics).
 
-The single most important behavior to take away from this section is the following. Because a query stage is not complete until every segment assigned to it has finished, Greenplum performance is governed by the slowest participating segment. If one segment is short on CPU, low on memory, waiting on storage, or blocked on the network, the entire query slows down or stalls along with it. The faster segments cannot make up for a slow one, they simply wait.
+The single most important behavior to take away from this section is the following. Because a query stage is not complete until every segment assigned to it has finished, Greenplum performance is governed by the slowest participating segment. If one segment is short on CPU, low on memory, waiting on storage, or blocked on the network, the entire query slows down or stalls along with it. The faster segments cannot make up for a slow one; they wait.
 
 This is why balance across segments matters far more in Greenplum than peak performance on any single node, and it is the reason several themes recur throughout this document. Segments need uniform and predictable resources, contention between segment VMs has to be avoided, and noisy-neighbor effects are considerably more damaging here than in most virtualized workloads. The subsections that follow examine how this plays out for query execution, concurrency, CPU, memory, storage, and network, and then explain why generic virtualization defaults fall short.
 

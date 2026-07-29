@@ -1,6 +1,6 @@
 # Storage Architecture - vSAN & vSAN Storage Cluster
 
-This section describes how Greenplum consumes vSAN ESA and the vSAN storage cluster (vSAN Max) for large-scale analytical workloads. It assumes the mirrorless segment configuration established in [Section 4](./resilience-topology.md#greenplum-resilience-topology-on-vsphere-mirrored-and-mirrorless) and, for the baseline, a single-rack failure domain. The design emphasizes deterministic latency, isolation of I/O patterns, and alignment of vSAN storage policies with Greenplum's resiliency model. It builds directly on the workload storage characteristics in [Section 3.6](./workload-characteristics.md#storage-access-patterns) and the recommended vSAN configuration settings, and it is where the durability that the mirrorless decision depends on is actually delivered.
+This section describes how Greenplum consumes vSAN ESA and the vSAN storage cluster (vSAN Max) for large-scale analytical workloads. It assumes the mirrorless segment configuration established in [Section 4](./resilience-topology.md#greenplum-resilience-topology-on-vsphere-mirrored-and-mirrorless) and, for the baseline, a single-rack failure domain. The design emphasizes deterministic latency, isolation of I/O patterns, and alignment of vSAN storage policies with Greenplum's resiliency model. It builds directly on the workload storage characteristics in [Section 3.6](./workload-characteristics.md#storage-access-patterns) and the recommended vSAN configuration settings, and it is where the durability that the mirrorless decision depends on is delivered.
 
 ## Design Philosophy - Storage for Mirrorless Greenplum
 
@@ -12,7 +12,7 @@ Greenplum's I/O profile, established in [Section 3.6](./workload-characteristics
 * **Isolation of I/O patterns**, so that a heavy temp spill or a WAL write burst on one VMDK does not degrade the scan latency of another.  
 * **WAL durability without a bottleneck**, since a single slow WAL fsync can stall query execution across the cluster.
 
-These are achieved through logical separation at the VMDK and storage-policy level rather than through physical LUNs. Different VMDKs on the same VM can carry different protection policies, RAID schemes, and stripe widths, which lets each class of Greenplum I/O be matched to the protection and performance it actually needs. The subsections that follow define that per-VMDK layout and then the platform-level vSAN settings that support it.
+These are achieved through logical separation at the VMDK and storage-policy level rather than through physical LUNs. Different VMDKs on the same VM can carry different protection policies, RAID schemes, and stripe widths, which lets each class of Greenplum I/O be matched to the protection and performance it needs. The subsections that follow define that per-VMDK layout and then the platform-level vSAN settings that support it.
 
 ## Minimum Disk Layout and SPBM Guidelines
 
@@ -20,9 +20,9 @@ Each Greenplum VM separates its I/O onto dedicated VMDKs, and each VMDK gets a s
 
 | Disk Type | VMDK | FTT  | RAID | Justification |
 | ----- | ----- | ----- | ----- | ----- |
-| OS | Dedicated | 1 | RAID‑1 orRaid-5 | Boot, binaries, logs. Low I/O intensity. Separate from database for management simplicity. Fast recovery; no query impact if degraded |
+| OS | Dedicated | 1 | RAID-1 orRaid-5 | Boot, binaries, logs. Low I/O intensity. Separate from database for management simplicity. Fast recovery; no query impact if degraded |
 | Segment Data | Dedicated | 2 recommended  (1 acceptable for small or non-critical) | RAID-6 for FTT=2  (RAID-5 for FTT=1) | Primary user data: large sequential reads, mixed writes, latency-sensitive.  This is the only copy of the data in a mirrorless design, so the FTT choice is the entire data-protection story.  **See the FTT discussion below.** |
-| WAL | Dedicated | 1 | RAID‑1 | PostgreSQL WAL: small, synchronous, fsync-heavy writes that are extremely latency-sensitive, where a single slow fsync stalls queries cluster-wide. RAID-1 minimizes write-path fan-out and gives the lowest, most predictable fsync latency. RAID-5 is deliberately not used here because parity read-modify-write penalizes exactly this small-synchronous-write pattern. |
+| WAL | Dedicated | 1 | RAID-1 | PostgreSQL WAL: small, synchronous, fsync-heavy writes that are extremely latency-sensitive, where a single slow fsync stalls queries cluster-wide. RAID-1 minimizes write-path fan-out and gives the lowest, most predictable fsync latency. RAID-5 is deliberately not used here because parity read-modify-write penalizes exactly this small-synchronous-write pattern. |
 | Temp | Dedicated | 1 recommended  (0 as an explicit optimization) | RAID-1  (RAID-0 for FTT=0 | Hash joins, sorts, and spills: bursty, large, short-lived, and fully reconstructable from base tables. FTT=1 keeps spill behavior consistent with the rest of the failure model. FTT=0 saves write overhead but adds a new failure surface.  **See the temp discussion below.** |
 
 **Note:** 
@@ -32,7 +32,7 @@ Each Greenplum VM separates its I/O onto dedicated VMDKs, and each VMDK gets a s
 
 **On Write Ahead Log (WAL):** WAL is the one VMDK where the RAID choice is not a capacity-versus-performance preference but a correctness-of-design point. Its latency directly gates commit and query progress (Section 3.6), so it takes the lowest-latency, lowest-fan-out policy available, which is RAID-1.
 
-**On FTT for segment data, the central mirrorless decision.** FTT=1 lets the cluster survive one host or disk failure. The exposure specific to a mirrorless design is what happens *during the rebuild* that follows: with FTT=1, the affected segment data runs with **no redundancy at all** until vSAN finishes rebuilding, and that rebuild competes for I/O and raises latency at the moment the workload is already degraded. If a second host fails inside that rebuild window, the segment data is lost. In a mirrorless cluster that is not an in-cluster recovery event — it is a disaster-recovery event, handled by the DR cluster described in Section 8. This is the plain meaning of FTT=1 for mirrorless Greenplum, and it should be stated as such to the business, not left implicit.
+**On FTT for segment data, the central mirrorless decision.** FTT=1 lets the cluster survive one host or disk failure. The exposure specific to a mirrorless design is what happens *during the rebuild* that follows: with FTT=1, the affected segment data runs with **no redundancy at all** until vSAN finishes rebuilding, and that rebuild competes for I/O and raises latency at the moment the workload is already degraded. If a second host fails inside that rebuild window, the segment data is lost. In a mirrorless cluster that is not an in-cluster recovery event - it is a disaster-recovery event, handled by the DR cluster described in Section 8. This is the plain meaning of FTT=1 for mirrorless Greenplum, and it should be stated as such to the business, not left implicit.
 
 FTT=2 removes that exposure by keeping redundancy through a single failure *and* its rebuild, so a second failure during the rebuild is survived rather than escalated to DR. For this reason **FTT=2 is the recommended policy for segment data on production mirrorless clusters**, with FTT=1 reserved for smaller or non-critical systems that accept the DR-escalation risk in exchange for lower capacity cost.
 
@@ -40,12 +40,12 @@ The capacity cost is the tradeoff to weigh, and it differs sharply by RAID schem
 
 | Policy | vSAN implementation | Raw capacity overhead | Minimum hosts | Explanation |
 | ----- | ----- | ----- | ----- | ----- |
-| FTT=1, RAID-5 | Erasure Coding (2+1) *(ESA)* | \~1.5x | 4 to 5 | Adaptive RAID-5 in vSAN ESA dynamically selects 2+1 scheme for clusters containing **3 to 5 hosts**. The absolute technical minimum required by vSAN is **3 hosts**. However, 4 hosts are strongly recommended so the cluster can perform self-healing or host maintenance without losing compliance. |
+| FTT=1, RAID-5 | Erasure Coding (2+1) *(ESA)* | ~1.5x | 4 to 5 | Adaptive RAID-5 in vSAN ESA dynamically selects 2+1 scheme for clusters containing **3 to 5 hosts**. The absolute technical minimum required by vSAN is **3 hosts**. However, 4 hosts are strongly recommended so the cluster can perform self-healing or host maintenance without losing compliance. |
 | FTT=1, RAID-5 | Erasure Coding (4+1) *(ESA)* | 1.25x | 6 or more | In vSAN ESA, once a cluster reaches **6 or more hosts**, vSAN automatically transforms RAID-5 objects into the 4+1 scheme to optimize capacity efficiency down to 1.25x. |
 | FTT=1, RAID-5 | Erasure Coding (3+1) *(OSA)* | 1.33x | 4 | In legacy vSAN OSA, RAID-5 does not use 2+1 or 4+1. Instead, it uses a fixed **3+1 scheme** (3 Data + 1 Parity), which yields a **1.33x (133%)** overhead and requires a minimum of **4 hosts**. |
-| FTT=1, RAID-1 | Mirroring (2 replicas + witness) | \~2x | 6 | Standard FTT=1 RAID-1 mirroring requires 2 data replicas plus 1 witness component (2 * FTT} + 1 \= 3). While 4 hosts are standard practice for maintenance headroom, the official technical minimum requirement in vSphere is 3 hosts. |
+| FTT=1, RAID-1 | Mirroring (2 replicas + witness) | ~2x | 6 | Standard FTT=1 RAID-1 mirroring requires 2 data replicas plus 1 witness component (2 * FTT} + 1 = 3). While 4 hosts are standard practice for maintenance headroom, the official technical minimum requirement in vSphere is 3 hosts. |
 | FTT=2, RAID-6 | Erasure Coding (4+2) | 1.5x | 3 | RAID-6 generates 6 components (4 data + 2 parity) which must be distributed across 6 separate fault domains/hosts. 7 hosts are recommended to maintain rebuild reservation. |
-| FTT=2, RAID-1 | Mirroring (3 replicas + witness) | 3x | 5 | 2 * FTT + 1 \= 2(2) + 1 \= 5 hosts required to host 3 data replicas and witness components. |
+| FTT=2, RAID-1 | Mirroring (3 replicas + witness) | 3x | 5 | 2 * FTT + 1 = 2(2) + 1 = 5 hosts required to host 3 data replicas and witness components. |
 
 The erasure-coding path is what makes FTT=2 affordable. At six or more hosts, FTT=1 RAID-5 costs 1.25x and FTT=2 RAID-6 costs 1.5x, so the additional failure tolerance is a premium of 20 percent on raw capacity.   
 In a mirrorless design, where vSAN holds the only copy of the data and a second failure during a rebuild would otherwise force a disaster-recovery event. This is why RAID-6 at FTT=2 is the recommended segment-data policy wherever the six-host minimum is met.
@@ -65,12 +65,12 @@ Specifically, pairing N+2 admission control with FTT=1 makes no sense in a mirro
 * With temp at **FTT=1**, a single disk or component failure under a spilling query is absorbed by vSAN transparently. The query keeps running. Temp behaves like every other protected VMDK, and there are no surprises.  
 * With temp at **FTT=0**, that same single component failure destroys the spill data, and any query currently spilling to it fails immediately, even though no segment or host has actually gone down.
 
-That second case is the problem. FTT=0 introduces a way for a query to fail on an isolated storage-component failure that would otherwise have been invisible. In a mirrorless design we already accept that queries fail when a *segment or host* is lost; we do not want to add a *new* class of failure where an isolated disk hiccup under a spill aborts a running query with the rest of the cluster perfectly healthy.   
+That second case is the problem. FTT=0 introduces a way for a query to fail on an isolated storage-component failure that would otherwise have been invisible. A mirrorless design already accepts that queries fail when a *segment or host* is lost; it should not introduce a *new* class of failure where an isolated disk hiccup under a spill aborts a running query while the rest of the cluster remains healthy.   
 Keeping temp at FTT: 1/2 (Depending on the admission Control policy) closes that gap, so a query only ever fails for reasons the failure model already accounts for. 
 
 **On erasure coding on ESA.** vSAN ESA largely removes the historical write penalty of erasure coding, so RAID-5 on ESA is close to RAID-1 in write behavior while using far less capacity. This is what makes RAID-5 a reasonable default for segment data on ESA specifically, whereas on older OSA it would have been a harder tradeoff.   
 
-As vSAN ESA’s log-structured write path removes the erasure coding write penalty, both RAID-5 and RAID-6 deliver near-RAID-1 performance at a fraction of the raw capacity cost. Recommending RAID-5 on ESA for Greenplum focuses on this performance efficiency, specifying RAID-6 (FTT=2) here simply adds the higher fault tolerance needed for a mirrorless segment architecture. The two choices answer different requirements “performance vs resilience”.
+As vSAN ESA's log-structured write path removes the erasure coding write penalty, both RAID-5 and RAID-6 deliver near-RAID-1 performance at a fraction of the raw capacity cost. Recommending RAID-5 on ESA for Greenplum focuses on this performance efficiency; specifying RAID-6 (FTT=2) adds the higher fault tolerance needed for a mirrorless segment architecture. The two choices answer different requirements: performance versus resilience.
 
 ## Platform-Level vSAN Configuration
 
@@ -109,7 +109,7 @@ This scenario is the reason that the production baseline is recommended to be se
 Every rebuild has a window during which the failed components are being reconstructed and the affected data is running on reduced redundancy. What happens if a second, overlapping failure lands inside that window depends entirely on the failure budget:
 
 * **On FTT=2 / RAID-6 (production baseline):** the first failure consumed one unit of the two-failure budget, leaving one in reserve. A second overlapping failure is still tolerated.   
-  vSAN continues serving data and simply has more to rebuild. The event self-heals, and no DR is triggered. This is the concrete payoff of FTT=2 in a mirrorless design: it survives a failure *during* a rebuild, which is exactly the compounding scenario that most threatens a single-copy database.  
+  vSAN continues serving data and has more to rebuild. The event self-heals, and no DR is triggered. This is the concrete payoff of FTT=2 in a mirrorless design: it survives a failure *during* a rebuild, which is exactly the compounding scenario that most threatens a single-copy database.  
 * **On FTT=1 / RAID-1 (small or non-critical clusters):** the first failure consumed the entire budget. A second overlapping failure means the affected segment data has no surviving copy, and it is lost. This is no longer an in-cluster recovery event; it is a **disaster-recovery event**, handled by the DR cluster in Section 8. The cluster does not self-heal out of this state.
 
 There is a related nuance specific to the FTT=1 fallback. RAID-1 rebuilds faster than RAID-5, because it copies from an intact mirror rather than reconstructing from parity. The exposed window during which a second failure would mean data loss is therefore shorter with RAID-1 than with RAID-5. For a cluster that must run FTT=1, this shorter exposure is a genuine reason to prefer RAID-1 mirroring over RAID-5 erasure coding, on top of the host-count floor discussed in [Section 7.2](#minimum-disk-layout-and-spbm-guidelines).
@@ -133,15 +133,15 @@ The table below is the decision reference for the whole section.
 | Scenario | FTT=2 / RAID-6 (production) | FTT=1 / RAID-1 (small / non-critical) |
 | :---- | :---- | :---- |
 | Single disk failure | Self-heals, no DB impact | Self-heals, no DB impact |
-| Second failure during rebuild | Survived, self-heals, no DR | Data loss -\> DR  |
+| Second failure during rebuild | Survived, self-heals, no DR | Data loss -> DR  |
 | Single host failure | Data safe, vSAN rebuilds while HA restarts VMs ([Section 5.9](./vsphere-cluster-design.md#physical-host-failure-and-recovery)), self-heals | Data safe, same HA restart, self-heals, but now at zero remaining budget |
-| Two concurrent host failures | Survived and self-heals | Data loss -\> DR  |
-| Failure exceeding budget in one event (3 hosts on FTT=2 / 2 hosts on FTT=1) | Data loss -\> DR | Data loss -\> DR |
+| Two concurrent host failures | Survived and self-heals | Data loss -> DR  |
+| Failure exceeding budget in one event (3 hosts on FTT=2 / 2 hosts on FTT=1) | Data loss -> DR | Data loss -> DR |
 
 Two observations to conclude the section. 
 
 * First, the entire value of FTT=2 shows up in exactly one column of that table, the overlapping-failure rows, and those are the scenarios most dangerous to a mirrorless database, which is why production is FTT=2 and not FTT=1.   
-* Second, every one of these events is invisible to Greenplum monitoring by design, because vSAN handles data protection a layer below the database. A disk failure never appears in Greenplum's own health view, and even a host failure surfaces there only as the segment restarts, not as the storage rebuild underneath it. That gap between what the database sees and what the storage layer is actually doing is precisely why the two-layer observability model is necessary; without the storage-layer view, an operator sees query latency during a rebuild with no visible cause.
+* Second, every one of these events is invisible to Greenplum monitoring by design, because vSAN handles data protection a layer below the database. A disk failure never appears in Greenplum's own health view, and even a host failure surfaces there only as the segment restarts, not as the storage rebuild underneath it. That gap between what the database sees and what the storage layer is doing is precisely why the two-layer observability model is necessary; without the storage-layer view, an operator sees query latency during a rebuild with no visible cause.
 
 **Note: On the vSAN object repair timer, FTT, and planned maintenance**
 

@@ -2,7 +2,7 @@
 
 This section describes rack-level deployment models for Greenplum on vSphere, focusing on performance, availability, and operational predictability. Two designs are presented, aligned to different availability requirements. Both make concrete, at the rack level, the placement and capacity rules established in Sections [5.7](./vsphere-cluster-design.md#vsphere-ha-configuration-recommendations) and [5.10](./vsphere-cluster-design.md#vm-placement-and-anti-affinity-rules).
 
-## Design 1 – Single Rack Greenplum (Recommended Baseline)
+## Design 1 - Single Rack Greenplum (Recommended Baseline)
 
 In this design the entire Greenplum cluster sits in one rack, optimized for low latency, predictable performance, and simple operations. Availability is provided at the host and storage layers, and a rack-level failure is handled through disaster recovery rather than in-cluster.
 
@@ -20,7 +20,7 @@ DRS runs in Partially Automated mode to preserve NUMA locality. Together these l
 
 This model fits when performance predictability is critical, query latency must be minimized, recovery via DR is acceptable, and business SLAs tolerate short query interruptions during host failures.
 
-## Design 2 – Rack / AZ Failure Resilient Deployment Using vSphere Stretched Cluster
+## Design 2 - Rack / AZ Failure Resilient Deployment Using vSphere Stretched Cluster
 
 This design is optional and intended only where rack or AZ-level failure tolerance is a hard business requirement. It uses a vSphere stretched cluster with each rack acting as an independent failure domain or availability zone.
 
@@ -47,7 +47,7 @@ Single-rack delivers maximum performance and simplicity, with rack failure handl
 | :---- | :---- | :---- |
 | Failure domains | 1 | 2 |
 | Performance | High | Reduced; cross-AZ motion adds interconnect latency  |
-| Compute Efficiency | High | \~50% Usable |
+| Compute Efficiency | High | ~50% Usable |
 | Storage efficiency (ESA, 6 or more hosts) |  1.25x for FTT=1 RAID-5,  1.5x for FTT=2 RAID-6,  2x for FTT=1 RAID-1 | Site mirror (2x) multiplied by the local policy 2.5x for local FTT=1 RAID-5,  3x for local FTT=2 RAID-6,  4x for local FTT=1 RAID-1 |
 | Query Interruption on Rack/AZ failure | Yes | Yes |
 | Operational Complexity | Low | High |

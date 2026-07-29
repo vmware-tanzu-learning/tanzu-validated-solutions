@@ -21,11 +21,11 @@ This requirement maps directly to the workload characteristics established earli
 * From Sections [3.3](./workload-characteristics.md#concurrency-and-parallelism), [3.4](./workload-characteristics.md#cpu-usage-patterns), and [3.5](./workload-characteristics.md#memory-usage-patterns), segment hosts run at sustained high CPU and consume memory aggressively, so any competing workload induces CPU ready time and memory contention.  
 * From Section [3.7](./workload-characteristics.md#network-traffic-characteristics), the interconnect will use all the network throughput available to it and is intolerant of the packet loss and latency variance that a noisy neighbor introduces.
 
-The **design position** is therefore **Greenplum cluster \= vSphere cluster.** The Greenplum system runs in a dedicated cluster or workload domain with no non-Greenplum workloads, and general-purpose or shared virtualization clusters are not an acceptable platform for it.
+The **design position** is therefore **Greenplum cluster = vSphere cluster.** The Greenplum system runs in a dedicated cluster or workload domain with no non-Greenplum workloads, and general-purpose or shared virtualization clusters are not an acceptable platform for it.
 
 **Consequences of mixing workloads:**
 
-* CPU scheduler “fairness” penalizes CPU‑heavy Greenplum VMs in favor of lighter workloads.  
+* CPU scheduler "fairness" penalizes CPU-heavy Greenplum VMs in favor of lighter workloads.  
 * Memory pressure from other tenants can trigger ballooning or compressed memory unless fully disabled, causing spills and query collapse.  
 * DRS will attempt to optimize placement across all workloads, undermining NUMA and cache affinity for segment hosts.
 
@@ -38,8 +38,8 @@ Host counts are tunable per environment, but the following baselines apply:
 
 The reason the production baseline is six hosts rather than four is not only about compute headroom, it is driven by what the storage layer can protect against, which matters more in a mirrorless design where vSAN is the sole copy of the data. The achievable vSAN failure tolerance is bounded by host count:
 
-* A **4-host** cluster can achieve at most **FTT=1**. It survives a single failure, but a second failure before the rebuild completes means data loss and escalation to disaster recovery. This is acceptable for functional validation, which is why “four hosts” is positioned as a PoC or development floor rather than production.  
-* A **5-host** cluster can reach **FTT=2, but only through RAID-1 mirroring** (three copies, \~3x capacity). RAID-6 is not yet available at this host count. Five hosts is therefore a viable production size for an environment that needs two-failure tolerance and accepts the mirroring capacity cost, but it is not the efficient path.  
+* A **4-host** cluster can achieve at most **FTT=1**. It survives a single failure, but a second failure before the rebuild completes means data loss and escalation to disaster recovery. This is acceptable for functional validation, which is why "four hosts" is positioned as a PoC or development floor rather than production.  
+* A **5-host** cluster can reach **FTT=2, but only through RAID-1 mirroring** (three copies, ~3x capacity). RAID-6 is not yet available at this host count. Five hosts is therefore a viable production size for an environment that needs two-failure tolerance and accepts the mirroring capacity cost, but it is not the efficient path.  
 * A **6-host** cluster is the first point at which **FTT=2 via RAID-6** becomes achievable, at 1.5x, and it is also the point at which FTT=1 RAID-5 improves to the 4+1 scheme at 1.25x. The step from single to double failure tolerance therefore costs only 20 percent more raw capacity here, which is what makes six hosts the efficient production baseline rather than merely a possible one.
 
 Because a mirrorless production cluster should be able to survive a second failure inside a rebuild window (the reasoning is developed in [Section 7.2](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines)), and because FTT=2 through RAID-6 requires six hosts, six hosts is the true production baseline. Four hosts is a valid POC size precisely because POC and development workloads might not require FTT=2. This links the compute sizing here to the storage protection policy in [Section 7.2](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines) and the admission-control matching rule in [Section 5.7](#vsphere-ha-configuration-recommendations).
@@ -173,7 +173,7 @@ The scenario is that the Primary Coordinator VM crashes, or its ESXi host fails,
 
 * No manual DBA intervention is required in the normal case. Depending on how coordinator services are configured to start on boot, if service is not configured to start on boot, the operator runs `gpstart` to bring the cluster back up  
 * DBAs may optionally:   
-  * Verify cluster health (e.g., Coordinator availability, FTS status)   
+  * Verify cluster health (for example, Coordinator availability, FTS status)   
   * Confirm application connectivity   
   * Standby promotion is not required unless the Primary Coordinator fails to restart or is deemed permanently unavailable.
 
@@ -213,7 +213,7 @@ The heavier host and disk failure classes are addressed later, host failure with
 
 **Segment process failure.** When a single segment's process fails, for example on an out-of-memory kill or a backend crash, but the VM itself stays healthy, recovery is local and no vSphere action is involved. 
 
-The mirrorless high availability service “`greenplum-postmaster`” on that VM restarts the segment, and on restart the segment replays its write-ahead log from vSAN-backed storage to reach its last committed state. FTS probed during the outage, the segment is briefly marked down and any in-flight query touching it aborts; the next successful probe marks it up and it rejoins the cluster. 
+The mirrorless high availability service "`greenplum-postmaster`" on that VM restarts the segment, and on restart the segment replays its write-ahead log from vSAN-backed storage to reach its last committed state. FTS probed during the outage, the segment is briefly marked down and any in-flight query touching it aborts; the next successful probe marks it up and it rejoins the cluster. 
 
 Operationally this class is close to self-healing: an alert fires, and the database team's job is to verify state and find the root cause, such as memory pressure, rather than to run a recovery procedure.
 
@@ -260,7 +260,7 @@ For any coordinator or segment failure:
 * Greenplum does not retry queries automatically.  
 * Query restart is driven by:  
   * Application retry logic, or  
-  * Explicit user / scheduler re‑execution.
+  * Explicit user / scheduler re-execution.
 
 Reason:
 
@@ -279,13 +279,13 @@ This is a deliberate design choice, not a limitation. Automatically retrying a f
 | Area  | Recommended setting for Greenplum on vSphere 9 | Rationale |
 | ----- | ----- | ----- |
 | HA   | Enabled  | Required to restart failed coordinator/segment VMs after host loss. |
-| Admission control  | “Host failures the cluster tolerates” or dedicated failover hosts | Enforces real capacity reserve for Greenplum VM restart. |
+| Admission control  | "Host failures the cluster tolerates" or dedicated failover hosts | Enforces real capacity reserve for Greenplum VM restart. |
 | Failures cluster tolerates  | Small clusters (4 to 5 hosts): 1.  Production clusters (6+ hosts): 2 | Implements N+1 / N+2. This must be matched to the vSAN FTT policy ([Section 7.2](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines)):  N+1 pairs with FTT=1,  N+2 pairs with FTT=2.  Setting N+2 on FTT=1 storage is inconsistent in a mirrorless design.  |
 | Dedicated failover hosts  | Optional, recommended for most critical clusters  | Reserves whole hosts for HA restart rather than relying on spare capacity spread across busy hosts. |
 | VM restart priority  | Coordinator and Standby: High.  Segment VMs: Medium.  Utility VMs: Low  | Ensures the coordinators come up first, then segments, then everything else. |
 | VM / Application monitoring  | Disabled for Greenplum VMs  | Avoids infrastructure-driven restarts on transient database conditions. Greenplum services are managed by the database team. |
 | Host isolation response  | Leave VMs powered on (default recommendation).  Power off and restart as an option in validated environments | See below Notes |
-| Datastore heartbeating  | Use vSAN defaults; no additional heartbeat datastores | vSAN ESA/vSAN Storage Cluster is the main datastore considered in this RA, HA uses vSAN + mgmt network, no extra VMFS/NFS required. Configure one or more *das.isolationaddress* values, so that transient vCenter/management issues do not trigger isolation when the host still has data‑plane connectivity.  |
+| Datastore heartbeating  | Use vSAN defaults; no additional heartbeat datastores | vSAN ESA/vSAN Storage Cluster is the main datastore considered in this RA, HA uses vSAN + mgmt network, no extra VMFS/NFS required. Configure one or more *das.isolationaddress* values, so that transient vCenter/management issues do not trigger isolation when the host still has data-plane connectivity.  |
 
 Two areas regarding HA configuration and Host Isolation Response need more than a one-line setting, so they are expanded below.
 
@@ -293,18 +293,18 @@ Two areas regarding HA configuration and Host Isolation Response need more than 
 
 The capacity reserved for HA is not a spare pool that Greenplum can borrow against; it must be genuine, unused headroom, because Greenplum runs with zero CPU and memory overcommit. The reservation math from [Section 5.3](#memory-management-and-scheduling) is what makes this work, because every Greenplum VM has a full memory reservation, HA can only restart a failed host's VMs if that much capacity genuinely exists elsewhere.
 
-* For 4–5 host clusters, configure   
-  * “Host failures cluster tolerates \= 1” or define 1 dedicated failover host   
+* For 4-5 host clusters, configure   
+  * "Host failures cluster tolerates = 1" or define 1 dedicated failover host   
   * Capacity planning must assume N+1 with zero CPU/memory overcommit for Greenplum VMs.  
 * For 6+ host clusters, configure   
-  * “Host failures cluster tolerates \= 2” or 2 dedicated failover hosts, achieving N+2 redundancy.  
-  * Capacity planning must assume N‑2 with zero CPU/memory overcommit for Greenplum VMs.
+  * "Host failures cluster tolerates = 2" or 2 dedicated failover hosts, achieving N+2 redundancy.  
+  * Capacity planning must assume N-2 with zero CPU/memory overcommit for Greenplum VMs.
 
 **Note:** 
 
 **Admission control must be set in step with the vSAN FTT policy**, as these two protect different layers and a mismatch is governed by the weaker one. Admission control reserves compute capacity so VMs can restart; FTT reserves storage redundancy so the data survives.   
-In a mirrorless design, N+2 compute reservation is only meaningful if the storage is also FTT=2. Otherwise the second host failure loses the data before the reserved compute can be used, and the reserved compute is simply wasted.   
-Since FTT=2 through RAID-6 requires six hosts, N+2 admission control is a property of the six-plus-host production baseline, and the 4 to 5 host clusters run N+1 with FTT=1. The full rationale for pairing the compute and storage layers is in [Section 7.](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines)2.
+In a mirrorless design, N+2 compute reservation is only meaningful if the storage is also FTT=2. Otherwise the second host failure loses the data before the reserved compute can be used, and the reserved compute is wasted.   
+Since FTT=2 through RAID-6 requires six hosts, N+2 admission control is a property of the six-plus-host production baseline, and the 4 to 5 host clusters run N+1 with FTT=1. The full rationale for pairing the compute and storage layers is in [Section 7.2](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines).
 
 **vSAN Storage Cluster and datastore heartbeat:**
 
@@ -313,12 +313,12 @@ Since FTT=2 through RAID-6 requires six hosts, N+2 admission control is a proper
 
 **Host Isolation Response**
 
-* Configure one or more *das.isolationaddress* values, so that transient vCenter/management Network issues do not trigger isolation when the host still has data‑plane connectivity.  
-* In environments where HA isolation detection has been validated, host isolation response may be set to “Power off and restart VMs” to accelerate recovery.   
+* Configure one or more *das.isolationaddress* values, so that transient vCenter/management Network issues do not trigger isolation when the host still has data-plane connectivity.  
+* In environments where HA isolation detection has been validated, host isolation response may be set to "Power off and restart VMs" to accelerate recovery.   
   Greenplum FTS will still mark segments down and DBAs must perform segment recovery before resuming full workload.  
-* For the most conservative deployments, “Leave VMs powered on” can be used to avoid hypervisor initiated power‑off decisions under ambiguous failure conditions, accepting longer time to clear a bad host.
+* For the most conservative deployments, "Leave VMs powered on" can be used to avoid hypervisor initiated power-off decisions under ambiguous failure conditions, accepting longer time to clear a bad host.
 
-## vSphere DRS – Greenplum-Specific Configuration
+## vSphere DRS - Greenplum-Specific Configuration
 
 DRS is valuable to Greenplum for one thing above all is getting initial placement right. It becomes a liability if it is allowed to migrate running segment VMs for the sake of cluster balance, because every such migration disturbs NUMA locality and briefly steals CPU, network, and buffer capacity from a workload that has none to spare. The configuration below keeps the useful half and suppresses the harmful half.
 
