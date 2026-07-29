@@ -54,7 +54,7 @@ Each ESXi host in the Greenplum cluster uses one of two uplink counts:
 
 Both designs preserve strict separation of vSAN client traffic and Greenplum interconnect traffic onto different port groups with consistent Active/Standby teaming. 
 
-The difference between them, examined in 6.5, is that 6 uplinks let interconnect and vSAN each own a dedicated NIC pair, which removes a shared-failure risk that the 4-uplink design has to accept.
+The difference between them, examined in [Uplink Teaming Policy](#uplink-teaming-policy), is that 6 uplinks let interconnect and vSAN each own a dedicated NIC pair, which removes a shared-failure risk that the 4-uplink design has to accept.
 
 ## Network Logical Architecture on vSphere
 
@@ -142,7 +142,7 @@ If all NICs can be 25G or higher, that is strongly preferred and simplifies the 
   * Keep Greenplum Interconnect and vSAN Storage Cluster client traffic on the highest-bandwidth NICs at all times.  
   * Use lower-bandwidth NICs only for management, vMotion, and optionally GP-Client/DataOps.
 
-When hosts have homogeneous high-bandwidth NICs, use them for all traffic classes as per the 6-uplink table below. The split between 'low-bandwidth for mgmt' and 'high-bandwidth for data' is only for hardware that already ships with such a distinction, it is not a requirement or a cost-optimization recommendation for new designs.
+When hosts have homogeneous high-bandwidth NICs, use them for all traffic classes as per the 6-uplink table below. The split between 'low-bandwidth for mgmt' and 'high-bandwidth for data' is only for hardware that already ships with such a distinction; it is not a requirement or a cost-optimization recommendation for new designs.
 
 #### 4-Uplink Host Configuration (Minimum Production)
 
@@ -159,10 +159,10 @@ In this layout the two high-bandwidth ports on Card 2 carry both of the heavy fl
 
 | Portgroup | Active Uplink | Primary Standby  | Secondary Standby | Notes |
 | ----- | ----- | ----- | ----- | ----- |
-| PG-GP-Interconnect  | vmnic2 | vmnic3 | vmnic 0 | Primary GP motion traffic. Always on high-bandwidth NIC (Card 2), primary failover within the same card. Can fail over to low-bandwidth uplink if Card 2 fails. (Priority set priority via NIOC) |
+| PG-GP-Interconnect | vmnic2 | vmnic3 | vmnic 0 | Primary GP motion traffic. Always on high-bandwidth NIC (Card 2), primary failover within the same card. Can fail over to low-bandwidth uplink if Card 2 fails. (Priority set priority via NIOC) |
 | PG-vSAN-Client  | vmnic3 | vmnic2 | vmnic 1 | vSAN Storage Cluster vmkernel NICs Always on high-bandwidth NIC (Card 2), primary failover within the same card.  Can fail over to low-bandwidth uplink if Card 2 fails. (Priority set priority via NIOC) |
 | PG-GP-Client  | vmnic0 | vmnic1 | vmnic 3 | Client to coordinator. Primary on Card 1, primary failover within the same card.  Can fail over to high-bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
-| PG-GP-DataOps | vmnic1 | vmnic0 | vmnic 3 | ETL/backup  traffic Primary on Card 1, primary failover within the same card.  Can fail over to high-bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
+| PG-GP-DataOps | vmnic1 | vmnic0 | vmnic 3 | ETL/backup traffic. Primary on Card 1, primary failover within the same card.  Can fail over to high-bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
 | PG-vMotion | vmnic1 | vmnic0 | vmnic 2 | vMotion vmkernel. Confined to lower-bandwidth NIC (Card 1), used only for planned maintenance. Primary on Card 1, primary failover within the same card.  Can fail over to high-bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
 | PG-Mgmt  | vmnic0 | vmnic1 | vmnic 3 | Mgmt vmk0. Confined to lower-bandwidth NIC (Card 1). Primary on Card 1, primary failover within the same card.  Can fail over to high-bandwidth uplink if Card 1 fails. (Priority set priority via NIOC) |
 
@@ -174,7 +174,7 @@ Shares become active only on failover, when a flow moves onto a NIC that another
 
 On the Card 2 high-bandwidth uplinks (vmnic2 and vmnic3):
 
-| Portgroup | Shares Value | Limit | Uplink MappingActive / Primary Standby / Secondary Standby |
+| Portgroup | Shares Value | Limit | Uplink Mapping Active / Primary Standby / Secondary Standby |
 | ----- | ----- | ----- | ----- |
 | PG-GP-Interconnect  | 60 | None | vmnic 2 / vmnic 3 / vmnic 0 |
 | PG-vSAN-Client  | 30 | None | vmnic 3 / vmnic 2 / vmnic 1 |
@@ -183,7 +183,7 @@ On the Card 2 high-bandwidth uplinks (vmnic2 and vmnic3):
 
 On the Card 1 control uplinks (vmnic0 and vmnic1):
 
-| Portgroup | Shares Value | Limit | Uplink MappingActive / Primary Standby / Secondary Standby |
+| Portgroup | Shares Value | Limit | Uplink Mapping Active / Primary Standby / Secondary Standby |
 | ----- | ----- | ----- | ----- |
 | PG-Mgmt | 50 | None | vmnic 0 / vmnic 1 / vmnic 2 |
 | PG-vMotion | 20 | None | vmnic 1 / vmnic 0 / vmnic 3 |
@@ -216,9 +216,9 @@ The six-uplink layout removes the shared-card risk by giving interconnect and vS
 
 | Portgroup | Active Uplink | Standby Uplink | Notes |
 | ----- | ----- | ----- | ----- |
-| PG-GP-Interconnect  | vmnic2 | vmnic3 | Primary GP motion traffic.Dedicated high-bandwidth pair for motion operators |
+| PG-GP-Interconnect | vmnic2 | vmnic3 | Primary GP motion traffic. Dedicated high-bandwidth pair for motion operators |
 | PG-vSAN-Client  | vmnic4 | vmnic5 | vSAN vmkernel NICs. Dedicated high-bandwidth pair for storage IO |
-| PG-GP-Client  | vmnic3 | vmnic2 | Client to coordinator. Primary on Card 2. Client traffic on interconnect pair (low priority via NIOC) |
+| PG-GP-Client | vmnic3 | vmnic2 | Client to coordinator. Primary on Card 2. Client traffic on interconnect pair (low priority via NIOC) |
 | PG-GP-DataOps | vmnic5 | vmnic4 | ETL/backup on vSAN pair (low priority, and rate-limited via NIOC) |
 | PG-vMotion | vmnic1 | vmnic0 | vMotion vmkernel. Confined to lower-bandwidth NIC (Card 1). |
 | PG-Mgmt  | vmnic0 | vmnic1 | Mgmt vmk0. Confined to lower-bandwidth NIC (Card 1). |
@@ -227,7 +227,7 @@ The six-uplink layout removes the shared-card risk by giving interconnect and vS
 
 On high-bandwidth uplinks (vmnic2-5):
 
-| Portgroup | Shares Value | Limit | Uplink MappingActive/Standby |
+| Portgroup | Shares Value | Limit | Uplink Mapping Active/Standby |
 | ----- | ----- | ----- | ----- |
 | PG-GP-Interconnect  | 80 | None | vmnic 2 / vmnic 3  |
 | PG-GP-Client  | 20 | None | vmnic 3 / vmnic 2  |
@@ -236,7 +236,7 @@ On high-bandwidth uplinks (vmnic2-5):
 
 On control uplinks (vmnic0-1):
 
-| Portgroup | Shares Value | Limit | Uplink MappingActive/Standby |
+| Portgroup | Shares Value | Limit | Uplink Mapping Active/Standby |
 | ----- | ----- | ----- | ----- |
 | PG-Mgmt | 70 | None | vmnic 0 / vmnic 1 |
 | PG-vMotion | 30 | None | vmnic 1 / vmnic 0 |
@@ -249,7 +249,7 @@ Why this layout is preferred:
 
 ## Firewall and Port Requirements
 
-Previous Sections separates traffic into isolated Layer 2 segments. This subsection defines the flows that must be permitted for the cluster to function, expressed as source, destination, port, and protocol, and grouped by the port group that carries them.
+The preceding sections separate traffic into isolated Layer 2 segments. This subsection defines the flows that must be permitted for the cluster to function, expressed as source, destination, port, and protocol, and grouped by the port group that carries them.
 
 ### Interconnect Cannot Be Port-Filtered
 
@@ -257,7 +257,7 @@ The Greenplum interconnect does not use fixed ports. It moves tuples between seg
 
 Traffic between segment hosts on the interconnect network must therefore flow freely across the full range. Restricting it to specific ports breaks query execution intermittently and is very hard to diagnose. This is why the interconnect sits on its own isolated VLAN and port group: the open range is safe because nothing else shares the segment, and enforcement happens at the segment edge rather than between segments.
 
-**Note:** The segment SQL client ports, used by the coordinator to coordinate with segments, are also not a fixed set. They are assigned at initialisation or expansion, recorded in `gp_segment_configuration`, and viewable with `gpstate -p`.
+**Note:** The segment SQL client ports, used by the coordinator to coordinate with segments, are also not a fixed set. They are assigned at initialization or expansion, recorded in `gp_segment_configuration`, and viewable with `gpstate -p`.
 
 ### Required Flows
 

@@ -12,7 +12,7 @@ The platform is designed to provide Tanzu Greenplum with:
 * Failure domains aligned with Greenplum's MPP architecture   
 * Data durability and query availability delivered through an integrated platform design
 
-This architecture adopts a platform-integrated design philosophy, it harnesses the resilience capabilities of both Tanzu Greenplum and the underlying vSphere and vSAN platform, combining them so that each layer reinforces the other and protection is delivered without unnecessary duplication.
+This architecture adopts a platform-integrated design philosophy; it harnesses the resilience capabilities of both Tanzu Greenplum and the underlying vSphere and vSAN platform, combining them so that each layer reinforces the other and protection is delivered without unnecessary duplication.
 
 ## Scope
 
@@ -52,7 +52,7 @@ This reference architecture does not attempt to reintroduce these technologies, 
 
 | Component | Version/Requirement | Notes |
 | ----- | ----- | ----- |
-| VMware vSphere | Minimum: VMware vSphere Foundation(VVF) Supported: VMware Cloud Foundation(VCF) | Required for compute virtualization, Networking, HA, and DRS |
+| VMware vSphere | Minimum: VMware vSphere Foundation (VVF). Supported: VMware Cloud Foundation (VCF) | Required for compute virtualization, Networking, HA, and DRS |
 | vCenter Server | 9.x | Required for centralized management, lifecycle operations, and cluster services |
 | ESXi Hosts | 9.x  | Aligned with VVF/VCF |
 | Storage | vSAN ESA or vSAN Storage Cluster | vSAN ESA and Storage-only cluster (vSAN Max) supported for high-throughput analytics workloads |

@@ -10,10 +10,10 @@ A coordinator sits in front of them, authenticates clients, holds the global cat
 **Logical components and their platform realization**
 
 **Client and application access:** SQL clients, interactive users, administration and monitoring tools, and ETL utilities such as `gpfdist` and `gpload` connect to the coordinator over the client-access network.   
-High-volume external loads are typically driven from one or more dedicated ETL hosts. Other ingest mechanisms exist, including the Platform Extension Framework(PXF) for reading external data sources directly and streaming connectors for message platforms, and these share the same network path and traffic class as the utilities described here. This document uses `gpfdist` and `gpload` as the reference ingest path.
+High-volume external loads are typically driven from one or more dedicated ETL hosts. Other ingest mechanisms exist, including the Platform Extension Framework (PXF) for reading external data sources directly and streaming connectors for message platforms, and these share the same network path and traffic class as the utilities described here. This document uses `gpfdist` and `gpload` as the reference ingest path.
 
 **Coordinator layer:** The Primary Coordinator manages client sessions, owns the global catalog, and performs query parsing, planning, and dispatch. It holds no user data.   
-A Standby Coordinator maintains a synchronously replicated copy of the coordinator's state and can be promoted if the primary fails permanently. The coordinator role is retained in all deployments described in this document, its restart and failover semantics are detailed in [Coordinator and Standby Semantics](./vsphere-cluster-design.md#coordinator-and-standby-semantics)
+A Standby Coordinator maintains a synchronously replicated copy of the coordinator's state and can be promoted if the primary fails permanently. The coordinator role is retained in all deployments described in this document; its restart and failover semantics are detailed in [Coordinator and Standby Semantics](./vsphere-cluster-design.md#coordinator-and-standby-semantics)
 
 **Segment layer (MPP execution):** User data is distributed across multiple segment hosts, each running several segment instances. Segments execute their fragments of a query in parallel against local data and exchange data through the interconnect as the plan requires. This is where the bulk of query work such as scanning, joining, and aggregating happens.
 

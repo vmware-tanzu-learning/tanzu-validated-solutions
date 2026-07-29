@@ -8,7 +8,7 @@ The design is built around three objectives:
 * **Controlled failure behavior.** Clear, well-understood outcomes when a host or VM fails, aligned with how Greenplum itself behaves.  
 * **Operational clarity.** A firm line between infrastructure responsibilities (restart, capacity, placement) and database responsibilities (cluster integrity, recovery).
 
-Two assumptions carry through the section. The cluster is dedicated to Greenplum which is strongly recommended, and the workload is a low-to-medium concurrency mix that is predominantly analytical (OLAP). The high-availability topology itself is not restated as an assumption here, it is established in [When Mirroring Is Still the Right Choice](./resilience-topology.md#when-mirroring-is-still-the-right-choice), and this section builds on the mirrorless baseline defined there..
+Two assumptions carry through the section. The cluster is dedicated to Greenplum, which is strongly recommended, and the workload is a low-to-medium concurrency mix that is predominantly analytical (OLAP). The high-availability topology itself is not restated as an assumption here; it is established in [When Mirroring Is Still the Right Choice](./resilience-topology.md#when-mirroring-is-still-the-right-choice), and this section builds on the mirrorless baseline defined there.
 
 ## vSphere Cluster Topology
 
@@ -101,19 +101,6 @@ Greenplum uses memory as a primary performance tool and is highly sensitive to a
   * Transparent page sharing / memory compression for these VMs.  
   * Host swapping under all normal operating conditions.
 
-The requirement is a full, 
-
-* 100 percent memory reservation for every Greenplum VM:   
-  * the Primary Coordinator,   
-  * the Standby Coordinator, and   
-  * all segment VMs. 
-
-Alongside that, the reclaim mechanisms must be disabled or prevented from acting on these VMs, specifically:
-
-* Ballooning, so the balloon driver never reclaims guest memory  
-* Transparent page sharing and memory compression for these VMs  
-* Host swapping under all normal operating conditions
-
 This maps to [Memory Usage Patterns](./workload-characteristics.md#memory-usage-patterns) and [Storage Access Patterns](./workload-characteristics.md#storage-access-patterns), once memory is constrained or reclaimed, queries spill to disk, and those spills add storage and network I/O that degrades performance across the whole cluster rather than on one VM. From [Why Generic Virtualization Defaults Fail](./workload-characteristics.md#why-generic-virtualization-defaults-fail), memory overcommit and reclaim conflict directly with Greenplum's execution model.
 
 ### Overcommit Policy
@@ -150,11 +137,11 @@ The scenario is that the Primary Coordinator VM crashes, or its ESXi host fails,
 
 **vSphere behavior:**
 
-* On the infrastructure side, vSphere HA detects the failure and restarts the Coordinator VM on a surviving host, subject to HA policy and available capacity. .
+* On the infrastructure side, vSphere HA detects the failure and restarts the Coordinator VM on a surviving host, subject to HA policy and available capacity.
 
 **Greenplum behavior:**
 
-* aAll client connections drop and all running queries abort at the moment of failure.  
+* All client connections drop and all running queries abort at the moment of failure.  
 * After the operating system boots:   
   * The postmaster process starts automatically   
   * All required Greenplum Coordinator services are brought up   
@@ -171,7 +158,7 @@ The scenario is that the Primary Coordinator VM crashes, or its ESXi host fails,
 
 **Operational requirement**
 
-* No manual DBA intervention is required in the normal case. Depending on how coordinator services are configured to start on boot, if service is not configured to start on boot, the operator runs `gpstart` to bring the cluster back up  
+* No manual DBA intervention is required in the normal case. If coordinator services are not configured to start automatically on boot, the operator runs `gpstart` to bring the cluster back up  
 * DBAs may optionally:   
   * Verify cluster health (for example, Coordinator availability, FTS status)   
   * Confirm application connectivity   
@@ -181,7 +168,7 @@ The scenario is that the Primary Coordinator VM crashes, or its ESXi host fails,
 
 The scenario here is that the Primary Coordinator VM is lost, corrupted, or intentionally not brought back.
 
-System Behaviour
+System Behavior
 
 * All client connections to the Primary Coordinator fail immediately.   
 * The Standby Coordinator continues running independently.   
@@ -213,18 +200,18 @@ The heavier host and disk failure classes are addressed later, host failure with
 
 **Segment process failure.** When a single segment's process fails, for example on an out-of-memory kill or a backend crash, but the VM itself stays healthy, recovery is local and no vSphere action is involved. 
 
-The mirrorless high availability service "`greenplum-postmaster`" on that VM restarts the segment, and on restart the segment replays its write-ahead log from vSAN-backed storage to reach its last committed state. FTS probed during the outage, the segment is briefly marked down and any in-flight query touching it aborts; the next successful probe marks it up and it rejoins the cluster. 
+The mirrorless high availability service "`greenplum-postmaster`" on that VM restarts the segment, and on restart the segment replays its write-ahead log from vSAN-backed storage to reach its last committed state. FTS probes during the outage, so the segment is briefly marked down and any in-flight query touching it aborts; the next successful probe marks it up and it rejoins the cluster. 
 
 Operationally this class is close to self-healing: an alert fires, and the database team's job is to verify state and find the root cause, such as memory pressure, rather than to run a recovery procedure.
 
 **Segment VM or host failure.** The scenario is a segment VM restarted by vSphere HA after its ESXi host fails. 
 
-**vSphere Behaviour:**
+**vSphere Behavior:**
 
 * The Segment VM is restarted on an available ESXi host.   
 * The operating system boots and is considered healthy at the infrastructure layer.
 
-**Greenplum Behaviour:**
+**Greenplum Behavior:**
 
 * When the segment became unavailable:   
   * The Fault Tolerance Service (FTS) marks the segment as DOWN (Post Probe Interval)   
@@ -280,12 +267,12 @@ This is a deliberate design choice, not a limitation. Automatically retrying a f
 | ----- | ----- | ----- |
 | HA   | Enabled  | Required to restart failed coordinator/segment VMs after host loss. |
 | Admission control  | "Host failures the cluster tolerates" or dedicated failover hosts | Enforces real capacity reserve for Greenplum VM restart. |
-| Failures cluster tolerates  | Small clusters (4 to 5 hosts): 1.  Production clusters (6+ hosts): 2 | Implements N+1 / N+2. This must be matched to the vSAN FTT policy ([Minimum Disk Layout and SPBM Guidelines](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines)):  N+1 pairs with FTT=1,  N+2 pairs with FTT=2.  Setting N+2 on FTT=1 storage is inconsistent in a mirrorless design.  |
+| Failures cluster tolerates | Small clusters (4 to 5 hosts): 1. Production clusters (6+ hosts): 2 | Implements N+1 / N+2. This must be matched to the vSAN FTT policy ([Minimum Disk Layout and SPBM Guidelines](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines)): N+1 pairs with FTT=1, N+2 pairs with FTT=2. Setting N+2 on FTT=1 storage is inconsistent in a mirrorless design. |
 | Dedicated failover hosts  | Optional, recommended for most critical clusters  | Reserves whole hosts for HA restart rather than relying on spare capacity spread across busy hosts. |
 | VM restart priority  | Coordinator and Standby: High.  Segment VMs: Medium.  Utility VMs: Low  | Ensures the coordinators come up first, then segments, then everything else. |
 | VM / Application monitoring  | Disabled for Greenplum VMs  | Avoids infrastructure-driven restarts on transient database conditions. Greenplum services are managed by the database team. |
 | Host isolation response  | Leave VMs powered on (default recommendation).  Power off and restart as an option in validated environments | See below Notes |
-| Datastore heartbeating  | Use vSAN defaults; no additional heartbeat datastores | vSAN ESA/vSAN Storage Cluster is the main datastore considered in this RA, HA uses vSAN + mgmt network, no extra VMFS/NFS required. Configure one or more *das.isolationaddress* values, so that transient vCenter/management issues do not trigger isolation when the host still has data-plane connectivity.  |
+| Datastore heartbeating  | Use vSAN defaults; no additional heartbeat datastores | vSAN ESA/vSAN Storage Cluster is the main datastore considered in this RA; HA uses vSAN + mgmt network; no extra VMFS/NFS is required. Configure one or more *das.isolationaddress* values, so that transient vCenter/management issues do not trigger isolation when the host still has data-plane connectivity.  |
 
 Two areas regarding HA configuration and Host Isolation Response need more than a one-line setting, so they are expanded below.
 
@@ -320,7 +307,7 @@ Since FTT=2 through RAID-6 requires six hosts, N+2 admission control is a proper
 
 ## vSphere DRS - Greenplum-Specific Configuration
 
-DRS is valuable to Greenplum for one thing above all is getting initial placement right. It becomes a liability if it is allowed to migrate running segment VMs for the sake of cluster balance, because every such migration disturbs NUMA locality and briefly steals CPU, network, and buffer capacity from a workload that has none to spare. The configuration below keeps the useful half and suppresses the harmful half.
+DRS is valuable to Greenplum for one thing above all: getting initial placement right. It becomes a liability if it is allowed to migrate running segment VMs for the sake of cluster balance, because every such migration disturbs NUMA locality and briefly steals CPU, network, and buffer capacity from a workload that has none to spare. The configuration below keeps the useful half and suppresses the harmful half.
 
 | Area  | Recommended setting for Greenplum on vSphere 9 | Rationale |
 | ----- | ----- | ----- |

@@ -62,7 +62,7 @@ The key behavior to understand is the difference in recovery path. When a host f
 
 ### The Greenplum High Availability Service for Mirrorless Clusters
 
-As a mirrorless cluster has no mirror segment to fail over to, it needs a mechanism that notices when a primary segment has become unavailable and drives its recovery. Greenplum provides this as a dedicated high availability service for mirrorless deployments, implemented as a **lightweight systemd service "**`greenplum-postmaster`**".** that runs on the cluster hosts. The `greenplum-postmaster` service monitors the primary segments of a Greenplum cluster to initiate automatic recovery if they become unavailable. This is required if running Greenplum without mirroring.
+As a mirrorless cluster has no mirror segment to fail over to, it needs a mechanism that notices when a primary segment has become unavailable and drives its recovery. Greenplum provides this as a dedicated high availability service for mirrorless deployments, implemented as a lightweight systemd service, `greenplum-postmaster`, that runs on the cluster hosts. The `greenplum-postmaster` service monitors the primary segments of a Greenplum cluster to initiate automatic recovery if they become unavailable. This is required if running Greenplum without mirroring.
 
 Understanding how it fits together depends on separating three roles that each do one part of the work:
 

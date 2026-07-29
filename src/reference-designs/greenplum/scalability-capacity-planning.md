@@ -21,7 +21,7 @@ The following terms recur throughout sizing and scalability discussions and are 
 | Index | A lookup structure allowing the database to jump to specific rows rather than reading everything | Analytical queries usually do not use indexes, so they read far more data than transactional queries |
 | Join | Combining rows from two or more tables that relate to each other, such as orders matched to customers | Memory-intensive, and often requires moving data between segments |
 | Hash join | The common method Greenplum uses to join, building an in-memory lookup structure from one side and probing it with the other | The largest single consumer of query memory |
-| Aggregation | Summarising many rows into fewer, such as totals, averages, or counts grouped by category | Memory-intensive, and requires gathering partial results from all segments |
+| Aggregation | Summarizing many rows into fewer, such as totals, averages, or counts grouped by category | Memory-intensive, and requires gathering partial results from all segments |
 | Sort | Ordering rows | Memory-intensive, spills to disk when memory runs short |
 | Spill | An operation running out of memory and writing intermediate results to disk in order to continue | The primary symptom of undersizing, and it degrades the whole cluster rather than only the query that spilled |
 | Heavy analytical query | A query scanning large volumes without indexes, then joining and aggregating the results | The workload class this architecture is sized for |
@@ -53,7 +53,7 @@ Resources required for the coordinator, at five concurrent users:
 | Network, interconnect only | 4 Gbps |
 | Storage read and write | 300 MB/s each |
 
-The baseline ratio is **4 GB of memory per vCPU**. This is the starting point for an analytical workload at moderate concurrency, and the figure to use when the workload is not yet well characterised. The following sections cover when and how far to raise it.
+The baseline ratio is **4 GB of memory per vCPU**. This is the starting point for an analytical workload at moderate concurrency, and the figure to use when the workload is not yet well characterized. The following sections cover when and how far to raise it.
 
 Two notes on application. The storage figure is a minimum per segment and may be increased. The network and storage throughput ratios should be held rather than reduced, because they are what prevent motion operations and scans from becoming the bottleneck.
 
@@ -73,11 +73,11 @@ The VM must then satisfy two checks:
   **Key NUMA Note: Sub-NUMA Clustering (SNC / NPS)** On modern multi-core processors, a physical CPU socket is split into multiple hardware NUMA nodes. When sizing Segment Host VMs, ensure the VM fits within the **individual NUMA node boundary**, not just the physical CPU socket.  
 * **Even distribution across nodes.** The VM count per physical host must divide evenly across that host's NUMA nodes. On a two-socket host the segment VM count per host should therefore be even. Because query time is set by the slowest segment ([Greenplum Architecture Overview](./workload-characteristics.md#greenplum-architecture-overview)), uneven distribution translates directly into uneven query performance, so this architecture treats even distribution as a requirement rather than a preference.
 
-A third check, on failover capacity, is covered in "[Capacity Planning Methods](#capacity-planning-method)".
+A third check, on failover capacity, is covered in "[Capacity Planning Method](#capacity-planning-method)".
 
 ### Hyperthreading
 
-Hyperthreading presents each physical core to the operating system as two logical processors, which share that core's execution resources and cache. Whether to use it is not a single decision but based on whether to enable it, and how much of it to budget as usable capacity.
+Hyperthreading presents each physical core to the operating system as two logical processors, which share that core's execution resources and cache. Whether to use it is not a single decision but two: whether to enable it, and how much of it to budget as usable capacity.
 
 **Why it can help.** Greenplum runs many parallel processes that stall frequently waiting on memory. Hyperthreading fills those stall cycles with the sibling thread's work, which is the case where it pays off. It also does not disturb NUMA alignment, because hyperthread siblings sit on the same physical core and therefore within the same NUMA node.
 
@@ -87,7 +87,7 @@ Hyperthreading presents each physical core to the operating system as two logica
 * **Cache contention.** A physical core has a fixed amount of fast cache. Two demanding threads evict each other's data from it, so the processor spends more time fetching from slower main memory. This is significant for Greenplum because hash join build and probe operations depend on their working structures staying resident in cache.  
 * **Memory bandwidth.** Large sequential scans are usually limited by memory bandwidth rather than by core count. Hyperthreading does not add bandwidth, so on a bandwidth-bound scan the sibling thread adds contention without adding throughput.
 
-The net effect on a saturated cluster is not usually a loss of raw throughput but an increase in runtime variance, and variance is what damages a synchronised MPP query, because every stage waits for its slowest participant.
+The net effect on a saturated cluster is not usually a loss of raw throughput but an increase in runtime variance, and variance is what damages a synchronized MPP query, because every stage waits for its slowest participant.
 
 **Recommendation by deployment type:**
 
@@ -95,7 +95,7 @@ The net effect on a saturated cluster is not usually a loss of raw throughput bu
 | :---- | :---- | :---- | :---- |
 | Dedicated cluster, high intensity or unpredictable concurrency | Disabled at host | 1 : 1, logical equals physical | Every VM is Greenplum, so there is no other workload to benefit. Disabling removes variance and makes the capacity arithmetic unambiguous. |
 | Dedicated cluster, moderate and predictable concurrency | Enabled | Up to 2 : 1, the functional unit baseline | Density and cost efficiency where the load is well understood and some variance is acceptable |
-| Shared cluster (See [Capacity Planning Methods](#capacity-planning-method) for more info) | Enabled at host, hyperthread core sharing restricted for the Greenplum VMs | 1 : 1 for the Greenplum VMs | Other tenants keep the benefit while the Greenplum VMs get exclusive physical cores |
+| Shared cluster (See [Capacity Planning Method](#capacity-planning-method) for more info) | Enabled at host, hyperthread core sharing restricted for the Greenplum VMs | 1 : 1 for the Greenplum VMs | Other tenants keep the benefit while the Greenplum VMs get exclusive physical cores |
 | Development, test, proof of concept | Enabled | 2 : 1 or higher | Functional validation rather than performance representation |
 
 The default for this architecture is the first row: hyperthreading disabled on a dedicated high-intensity cluster. Beyond the performance reasoning, this removes an operational ambiguity. With hyperthreading disabled, the core count seen in vCenter is the core count available, and there is no later temptation to treat logical processors as spare capacity.
@@ -114,7 +114,7 @@ Query load grows along three independent dimensions, and each calls for a differ
 
 **Concurrency and parallelism scale in opposite directions.** [Concurrency and Parallelism](./workload-characteristics.md#concurrency-and-parallelism) separated these: parallelism comes from segment count, concurrency comes from resources per segment. The consequence for sizing is easy to get backwards. Adding segments makes an individual query faster, but every query spawns worker processes on every segment it touches, so a higher segment count per host means each concurrent query consumes more memory and more processes on that host. Scaling out for speed can therefore reduce the number of queries that fit at once. Segment count should be chosen for the parallelism the workload needs, and concurrency capacity should be bought with memory rather than with additional segments.
 
-**The practical ceiling is the spill threshold.** The limit on query load is not CPU utilisation but the point at which concurrent queries exhaust memory and begin spilling. From the [Memory Usage Patterns](./workload-characteristics.md#memory-usage-patterns) and [Storage Access Patterns](./workload-characteristics.md#storage-access-patterns) sections, spilling does not degrade gracefully: it adds random I/O, lengthens queries, and compounds across the cluster. The sizing target is that the intended concurrency, at the intended query complexity, completes without routine spilling.
+**The practical ceiling is the spill threshold.** The limit on query load is not CPU utilization but the point at which concurrent queries exhaust memory and begin spilling. From the [Memory Usage Patterns](./workload-characteristics.md#memory-usage-patterns) and [Storage Access Patterns](./workload-characteristics.md#storage-access-patterns) sections, spilling does not degrade gracefully: it adds random I/O, lengthens queries, and compounds across the cluster. The sizing target is that the intended concurrency, at the intended query complexity, completes without routine spilling.
 
 [Bare-metal sizing guidance](https://www.linkedin.com/pulse/vmware-tanzu-greenplum-2025-sizing-guide-ai-driven-prompting-novick-gzadc) expresses the concurrency relationship as cores and memory required per host against the number of concurrent heavy analytical queries at peak:
 
@@ -164,9 +164,9 @@ The following inputs should be established before sizing a Greenplum platform. E
 | Input | Determines |
 | :---- | :---- |
 | Peak concurrent users or applications | Concurrency, the primary driver of memory |
-| Proportion running heavy analytical queries rather than small lookups | The concurrency figure that applies to the table in 9.2.5 |
+| Proportion running heavy analytical queries rather than small lookups | The concurrency figure that applies to the table in [Adjusting for Concurrency and Query Load](#adjusting-for-concurrency-and-query-load) |
 | Current raw dataset size and expected growth over two to three years | Storage sizing and host count |
-| Proportion of append-optimised or columnar data versus heap | Compression expectations, and whether incremental backups are worthwhile ([Greenplum Backup and Restore](./backup-and-restore.md#greenplum-backup-and-restore)) |
+| Proportion of append-optimized or columnar data versus heap | Compression expectations, and whether incremental backups are worthwhile ([Greenplum Backup and Restore](./backup-and-restore.md#greenplum-backup-and-restore)) |
 | Whether queries typically join several large tables | Memory per query, and interconnect load from data movement |
 | Presence of large sorts or aggregations over wide result sets | Memory per query, and spill risk |
 | Batch or ETL windows with a different resource profile from daytime queries | Whether the cluster must be sized for a peak that occurs only at certain times |
@@ -207,7 +207,7 @@ And below six hosts, RAID-5 at FTT=1 already costs 1.5x, the same as RAID-6, wit
 
 **Two headroom pools, kept separate.** The Greenplum 70 percent guideline exists so that remaining space absorbs temporary and spill files, and is a data-volume concern. The vSAN rebuild reserve (see [Platform-Level vSAN Configuration](./storage-architecture.md#platform-level-vsan-configuration)) exists so the cluster can rebuild after a host failure, and is a resilience concern at the datastore level. They stack rather than overlap.
 
-**Per-VMDK sizing.** The layout from [Minimum Disk Layout and SPBM Guidelines](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines), comprising OS, Segment Data, WAL, and Temp, means storage is sized per class rather than as a single pool, because each class carries a different policy and growth pattern. Segment Data grows with the dataset, WAL and Temp are sized to workload behaviour, and OS is effectively fixed. Minimum Disk Layout and SPBM Guidelines remains the authority for the per-VMDK policies.
+**Per-VMDK sizing.** The layout from [Minimum Disk Layout and SPBM Guidelines](./storage-architecture.md#minimum-disk-layout-and-spbm-guidelines), comprising OS, Segment Data, WAL, and Temp, means storage is sized per class rather than as a single pool, because each class carries a different policy and growth pattern. Segment Data grows with the dataset, WAL and Temp are sized to workload behavior, and OS is effectively fixed. Minimum Disk Layout and SPBM Guidelines remains the authority for the per-VMDK policies.
 
 **Key Storage Policy Note: Greenplum AO Compression vs. vSAN ESA Inline Compression:** To avoid redundant CPU cycles from double-compression, establish a clear compression policy:
 
@@ -269,8 +269,8 @@ Capacity planning follows a small set of rules and then a repeatable derivation.
 * **Plan segments per host around NUMA, not raw core count.** The segment count per host is fixed by the VM shape chosen in [vSphere Cluster and Compute Design](./vsphere-cluster-design.md#vsphere-cluster-and-compute-design). Growth planning should change the number of hosts, not the shape of a proven segment VM.  
 * **Reserve failure capacity first.** The admission control reserve from [vSphere HA Configuration Recommendations](./vsphere-cluster-design.md#vsphere-ha-configuration-recommendations) is an input to capacity, not a leftover. Usable capacity is what remains after it.  
 * **Verify the failover fit.** The steady-state placement must be checked against the failure case, so that when hosts fail and their VMs restart elsewhere, the surviving hosts can run the additional VMs without overcommit. This check is described below and is frequently missed.  
-* **Track vSAN slack explicitly.** Keep sustained utilisation below the recommended free-capacity threshold so rebuilds, resyncs, and policy changes always have room.  
-* **Trigger expansion early.** Treat roughly 70 percent sustained storage utilisation, or sustained concurrency saturation visible as queued queries or growing spill, as the planning trigger, because the scale-out workflow including redistribution and a fresh full backup takes time to execute safely.
+* **Track vSAN slack explicitly.** Keep sustained utilization below the recommended free-capacity threshold so rebuilds, resyncs, and policy changes always have room.  
+* **Trigger expansion early.** Treat roughly 70 percent sustained storage utilization, or sustained concurrency saturation visible as queued queries or growing spill, as the planning trigger, because the scale-out workflow including redistribution and a fresh full backup takes time to execute safely.
 
 The derivation is to fix the segment VM shape first, check it against NUMA and failover, derive cluster capacity from host count, and subtract failure reserve and vSAN slack before committing capacity.
 
@@ -279,7 +279,7 @@ The derivation is to fix the segment VM shape first, check it against NUMA and f
 Infrastructure administrators should establish automated alerts based on the following operational thresholds:
 
 * **Storage Expansion Trigger (70% Usable Capacity):** When vSAN usable datastore capacity reaches 70%, trigger a storage expansion. The scale-out process involving `gpexpand` and the subsequent mandatory full backup requires operational buffer time.  
-* **Memory Spill Aler**t: Monitor database system views for disk spill activity. Sustained spilling indicates that query concurrency or complexity has outgrown available RAM. Address this by allocating more RAM per VM (Vertical Scale) or adjusting Resource Group limits.  
+* **Memory Spill Alert:** Monitor database system views for disk spill activity. Sustained spilling indicates that query concurrency or complexity has outgrown available RAM. Address this by allocating more RAM per VM (Vertical Scale) or adjusting Resource Group limits.  
 * **The 1:1 Physical Core Rule:** In dedicated production clusters, always match 1 vCPU to 1 physical CPU core. Never rely on hyperthreading logical processors as extra compute capacity for Greenplum workloads.  
 * **vSAN Rebuild Reserve:** Always maintain enough unallocated physical storage on the vSAN cluster to allow a complete automatic rebuild if a single physical ESXi host fails.
 
@@ -308,8 +308,8 @@ What matters at the architecture level:
 
 * **Brief downtime, then online.** Initialising the new segments requires a short scheduled restart whose length is unrelated to cluster size. Afterwards the new segments participate immediately.  
 * **An interim redistribution window.** Until redistribution runs, existing data remains concentrated on the original segments, and tables are temporarily set to random distribution. During this window some queries are less efficient and unique constraints are not enforced. Redistribution returns each table to its original distribution policy, and performance improves incrementally as each table completes.  
-* **Redistribution is heavy but resumable.** It generates substantial disk and network activity and can run for a long time on large datasets, but it can be paused, resumed, and prioritised per table, so it can be fitted around business hours. Each table is unavailable for reads and writes only while it is being redistributed.  
-* **Recent releases have improved expansion performance materially**, including compression of the catalog template distributed to expansion hosts, parallel ledger initialisation, and connection pooling during redistribution. Expansion timings from older releases should not be assumed to still apply.
+* **Redistribution is heavy but resumable.** It generates substantial disk and network activity and can run for a long time on large datasets, but it can be paused, resumed, and prioritized per table, so it can be fitted around business hours. Each table is unavailable for reads and writes only while it is being redistributed.  
+* **Recent releases have improved expansion performance materially**, including compression of the catalog template distributed to expansion hosts, parallel ledger initialization, and connection pooling during redistribution. Expansion timings from older releases should not be assumed to still apply.
 
 **Backup consequence.** Changing the segment configuration invalidates existing incremental backup chains. After expansion completes and the expansion schema is removed, a fresh full backup must be taken before any further incremental backup ([Greenplum Backup and Restore](./backup-and-restore.md#greenplum-backup-and-restore)). This belongs in the expansion runbook.
 
@@ -325,12 +325,12 @@ A terminology note: the mechanisms below are vSphere level infrastructure contro
 | :---- | :---- | :---- |
 | Host groups with VM-Host affinity, using "must" rules | Confines Greenplum VMs to a defined subset of hosts | Creates a bounded performance and failure domain, so placement and failover occur within a known host set |
 | Full CPU and memory reservations | Guarantees resources regardless of co-tenants | Enforces the zero-overcommit requirement from [Memory Management and Scheduling](./vsphere-cluster-design.md#memory-management-and-scheduling) on shared hardware |
-| Admission control planned within the host subset | Reserves failover capacity inside the Greenplum host group | Keeps restart behaviour correct when the surrounding cluster is not dedicated |
+| Admission control planned within the host subset | Reserves failover capacity inside the Greenplum host group | Keeps restart behavior correct when the surrounding cluster is not dedicated |
 | Hyperthread core sharing restricted for Greenplum VMs | Gives the Greenplum VMs exclusive physical cores | Delivers the benefit of disabling hyperthreading without imposing it on other tenants |
 
 The essential idea is that host groups carve out a bounded set of hosts that behave, for Greenplum, like a small dedicated cluster, and full reservations guarantee the resources within it. The failure math is then tractable, because the failover reserve is planned across the confined subset rather than the shared cluster at large. Without the affinity confinement, a failed Greenplum VM could restart onto a busy general-purpose host, and the zero-overcommit guarantee would be lost precisely when it is most needed.
 
-Two cautions. The isolation is only as strong as the affinity rules and reservations, so "should" rules or partial reservations leave Greenplum exposed to the contention, [Greenplum Workload Characteristics](./workload-characteristics.md#greenplum-workload-characteristics) shows it cannot tolerate. And a shared cluster still carries the lifecycle coupling of its other tenants, including patching windows and change schedules that Greenplum does not control. These controls make a shared cluster workable, however,; they do not make it equivalent to a dedicated one.
+Two cautions. The isolation is only as strong as the affinity rules and reservations, so "should" rules or partial reservations leave Greenplum exposed to the contention that [Greenplum Workload Characteristics](./workload-characteristics.md#greenplum-workload-characteristics) shows it cannot tolerate. And a shared cluster still carries the lifecycle coupling of its other tenants, including patching windows and change schedules that Greenplum does not control. These controls make a shared cluster workable; however, they do not make it equivalent to a dedicated one.
 
 ### Mandatory Controls for Shared vSphere Clusters
 

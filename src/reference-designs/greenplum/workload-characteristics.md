@@ -1,6 +1,6 @@
 # Greenplum Workload Characteristics
 
-This section describes the workload characteristics of Greenplum that directly drive infrastructure design decisions on vSphere. Greenplum behaves very differently from Online Transaction Processing(OLTP) databases and from typical application workloads. Because of that, generic virtualization defaults are usually not a strong fit to an optimal Greenplum cluster. Every design recommendation in the rest of this Reference Architecture maps back to the behaviors described here.
+This section describes the workload characteristics of Greenplum that directly drive infrastructure design decisions on vSphere. Greenplum behaves very differently from Online Transaction Processing (OLTP) databases and from typical application workloads. Because of that, generic virtualization defaults are usually not a strong fit to an optimal Greenplum cluster. Every design recommendation in the rest of this Reference Architecture maps back to the behaviors described here.
 
 ## Greenplum Architecture Overview
 
@@ -53,20 +53,20 @@ Progress is bounded by the slowest communication path, so the design goal for th
 
 ## Concurrency and Parallelism
 
-Greenplum achieves parallelism with distributed data processing across Segments.Two related but distinct ideas drive Greenplum's scaling behavior.
+Greenplum achieves parallelism with distributed data processing across segments. Two related but distinct ideas drive Greenplum's scaling behavior.
 
 * **Parallelism** is how much of a *single* query runs at once. It comes from the number of segments, so adding segments makes an individual query faster.  
 * **Concurrency** is how many queries run at the *same time*. It is a function of the CPU and memory available per segment, so it improves by giving segments more resources.
 
 This architecture is designed to support both scaling directions without one starving the other.
 
-The defining characteristic on a segment host is **process density** which refers to the number of individual segment database instances running on a single physical host or Virtual Machine (VM). At peak concurrency:
+The defining characteristic on a segment host is **process density**, which refers to the number of individual segment database instances running on a single physical host or Virtual Machine (VM). At peak concurrency:
 
 * Each segment host runs dozens to hundreds of backend and worker processes simultaneously.  
 * These processes are long-lived for the duration of a query and run in parallel.  
 * Host-level parallelism is therefore expressed as a large number of concurrent processes.
 
-This density is not incidental, it is fundamental to how Greenplum's MPP model achieves throughput. It is also the root cause of the CPU and memory behavior detailed in the next two sections.
+This density is not incidental; it is fundamental to how Greenplum's MPP model achieves throughput. It is also the root cause of the CPU and memory behavior detailed in the next two sections.
 
 **Infrastructure implication:** Greenplum assumes near-exclusive, predictable access to CPU and memory on segment hosts during active queries. Shared or heavily overcommitted models break that assumption. The same process density is why scheduling and placement matter so much, and why segment VMs are aligned to NUMA boundaries in [CPU Architecture, NUMA Awareness, and vNUMA Configuration](./vsphere-cluster-design.md#cpu-architecture-numa-awareness-and-vnuma-configuration).
 
@@ -82,13 +82,13 @@ Greenplum is a CPU-intensive analytical engine whose executor is built to consum
 Key characteristics define this behavior:
 
 * **Sustained CPU saturation.** During active workloads, segment hosts run at high and continuous CPU utilization. Idle CPU time is not a design objective, queries are expected to consume available compute during their execution windows. Greenplum treats CPU as a dedicated execution resource, not a shared or elastic one.  
-* **High process concurrency.** Following directly from the process density in previous section, each segment process runs its own plan fragment. This produces frequent context switching, heavy scheduler involvement, and real sensitivity to CPU scheduling latency.  
+* **High process concurrency.** Following directly from the process density in the previous section, each segment process runs its own plan fragment. This produces frequent context switching, heavy scheduler involvement, and real sensitivity to CPU scheduling latency.  
 * **Tight coupling between CPU progress and query progress.** Query stages are synchronized   
   * Motion operators wait for all senders   
   * Aggregations wait for all inputs   
   * Final stages wait for the slowest segment
 
-A CPU slowdown on one segment does not stay local, it elongates the entire query.
+A CPU slowdown on one segment does not stay local; it elongates the entire query.
 
 **Infrastructure implication:** 
 
@@ -140,7 +140,7 @@ What matters is not peak IOPS or average latency, but how consistent and predict
 
 * **Bulk writes** from initial loads, ETL batches, and large INSERT, COPY, or CREATE TABLE AS operations. Typically large and sequential, but concurrent across many segments and hosts.  
 * **WAL writes**, used for durability and recovery. Smaller in size but highly latency-sensitive, because they are synchronous, a WAL latency spike can stall commit and query progress even when bulk I/O looks healthy.  
-* **Temporary spill writes**, As mentioned in previous section random and bursty, and self-reinforcing, since slower I/O lengthens the query, which produces still more spill.
+* **Temporary spill writes.** As mentioned in the previous section, these are random and bursty, and self-reinforcing, since slower I/O lengthens the query, which produces still more spill.
 
 The characteristic that ties this together is that **query execution is synchronized across segments**, so query performance is governed by the consistency of storage latency rather than its average. A single segment hitting even a brief latency spike can stall a motion operator, elongate the whole query, and create execution skew. Background storage operations are the usual source of such spikes, and in Greenplum they surface directly to users as query stalls and inconsistent runtimes for identical queries. Typical culprits include:
 
@@ -175,7 +175,7 @@ The failure types worth calling out:
 * **Storage latency spikes.** Increases query duration on affected segments  
 * **Host failure.** Takes its segments offline, so active queries using them fail. The cluster must then detect the failure, mark segments down, restart or recover the affected VMs, and resynchronize before normal service resumes.
 
-**Infrastructure implication:** Recovery mechanisms, including vSphere HA, DRS, and vSAN rebuild, must be designed and scheduled so they do not repeatedly interrupt motion-heavy queries. These behaviors and the recovery windows they imply are detailed in the high-availability topology section that follows and in [vSphere High Availability (HA)](./vsphere-cluster-design.md#vsphere-high-availability-ha) through 5.6, with storage rebuild considerations in [Storage Failure Behavior: Physical Disk Failure](./storage-architecture.md#storage-failure-behavior-physical-disk-failure).
+**Infrastructure implication:** Recovery mechanisms, including vSphere HA, DRS, and vSAN rebuild, must be designed and scheduled so they do not repeatedly interrupt motion-heavy queries. These behaviors and the recovery windows they imply are detailed in the high-availability topology section that follows and in [vSphere High Availability (HA)](./vsphere-cluster-design.md#vsphere-high-availability-ha) through [Impact on Query Execution](./vsphere-cluster-design.md#impact-on-query-execution), with storage rebuild considerations in [Storage Failure Behavior: Physical Disk Failure](./storage-architecture.md#storage-failure-behavior-physical-disk-failure).
 
 ## Why Generic Virtualization Defaults Fail
 

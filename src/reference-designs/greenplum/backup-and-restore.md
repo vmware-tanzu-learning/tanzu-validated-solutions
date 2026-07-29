@@ -2,7 +2,7 @@
 
 ## Overview
 
-vSAN protects the data against hardware failure in place ([Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster)), but it cannot protect against logical or human error, or against total loss of the cluster or rack, because it replicates a mistaken deletion as faithfully as good data. Backup and restore is the layer that covers those gaps, and it is the mechanism behind the DR escalation paths in the [Storage Failure Behavior: Physical Disk Failure](./storage-architecture.md#storage-failure-behavior-physical-disk-failure) and [Rack Design for Greenplum Clusters](./rack-design.md#rack-design-for-greenplum-clusters) sections. The two layers are complementary; it does not replace the other.
+vSAN protects the data against hardware failure in place ([Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster)), but it cannot protect against logical or human error, or against total loss of the cluster or rack, because it replicates a mistaken deletion as faithfully as good data. Backup and restore is the layer that covers those gaps, and it is the mechanism behind the DR escalation paths in the [Storage Failure Behavior: Physical Disk Failure](./storage-architecture.md#storage-failure-behavior-physical-disk-failure) and [Rack Design for Greenplum Clusters](./rack-design.md#rack-design-for-greenplum-clusters) sections. The two layers are complementary; neither replaces the other.
 
 Greenplum uses a parallel, MPP-aware framework, `gpbackup` and `gprestore`, in which the coordinator captures metadata while every segment writes its own slice of data in parallel, to local storage or a storage plugin. This scales with the cluster instead of bottlenecking on the coordinator, which is why it is the method used throughout this architecture. The non-parallel `pg_dump` utilities route everything through the coordinator and are special-case only.
 
@@ -26,7 +26,7 @@ Command syntax and configuration beyond the workflows shown here are in the Tanz
 | Full | All objects and data, point-in-time | Self-contained; base for any incremental set. |
 | Incremental | Changed append-optimized data only | Heap tables always backed up in full. Efficient only for AO-heavy, low-change data. |
 | Metadata-only / Data-only | Schema or data separately | Useful for staging restores. |
-| Filtered | Selected schemas, tables, or leaf partitions | Basis for same-cluster logical recovery (10.5). |
+| Filtered | Selected schemas, tables, or leaf partitions | Basis for same-cluster logical recovery (see [Restore Scenarios](#restore-scenarios)). |
 
 Two rules govern incremental sets and are treated as constraints:
 
@@ -43,12 +43,12 @@ To understand how backups behave, one must first understand Greenplum's two unde
 | :---- | :---- | :---- |
 | Primary Use Case | Small lookup tables, metadata, operational tables with frequent UPDATE/DELETE. | Large fact tables, data warehouse historical logs, bulk INSERT workloads. |
 | Storage Mechanism | Standard PostgreSQL 8 KB pages.  | Custom Greenplum block storage. Data is appended sequentially to file segments. |
-| Greenplum 7 Syntax | Default, or CREATE TABLE ... USING heap; | CREATE TABLE ... WITH (appendonly=true); (Or GP7 syntax: USING ao_row / USING ao_column) |
+| Greenplum 7 Syntax | Default, or CREATE TABLE ... USING heap; | CREATE TABLE ... WITH (appendonly=true); (Or GP7 syntax: USING ao_row / USING ao_column) |
 | Incremental Backup Behavior | ALWAYS backed up 100% in full. | Backed up incrementally. Only changed AO file segments/partitions are copied. |
 
 **What does `APPENDONLY=TRUE` do under the hood?**
 
-When a database developer or admin creates a table with `WITH (appendonly=true) (or USING ao_row / USING ao_column` in Greenplum 7), it tells the database engine to:
+When a database developer or admin creates a table with `WITH (appendonly=true)` (or `USING ao_row` / `USING ao_column` in Greenplum 7), it tells the database engine to:
 
 * Bypass standard PostgreSQL row editing: Data blocks are written sequentially. Modifying data does not overwrite existing disk blocks; instead, changes are appended as new segment files or tracked in visibility maps.  
 * Enable Compression & Columnar Storage: It opens up options for heavy compression algorithms (for example, `zstd, zlib`) and columnar layouts (`orientation=column`), drastically reducing S3/disk footprint.  
@@ -63,7 +63,7 @@ While incremental backups reduce daily backup windows and network bandwidth, the
 * The "Hidden Heap" Storage Inflation If application teams create large tables as default Heap tables instead of AO tables, your "incremental" backup size will not shrink as expected. If 40% of your total database volume is in Heap tables, your daily incremental backup will always be at least 40% of the full backup size.  
 * Chain Dependency & Increased Failure Risk An incremental set forms a strict chain: `[Full Base] -> [Inc 1] -> [Inc 2] -> [Inc 3]`.  
   * Restore Complexity: Restoring to Inc 3 requires every single preceding backup in the chain to be present and uncorrupted.  
-  * Blast Radius: If `Inc 1` becomes corrupted on S3 or storage, `Inc 2` and `Inc 3` become un-restorable.  
+  * Blast Radius: If `Inc 1` becomes corrupted on S3 or storage, `Inc 2` and `Inc 3` become unrestorable.  
 * Invalidation by Cluster Scale-Out (`gpexpand`) Performing a cluster expansion (`gpexpand`) to add segment hosts alters the physical segment distribution. This immediately invalidates all existing incremental chains. The first backup following a `gpexpand` must be a full backup.  
 * Strict Target & Parameter Locking All backups within an incremental chain must share identical configuration options (for example, `--leaf-partition-data` and `--plugin-config`) and reside on the exact same storage target/S3 bucket. You cannot mix storage targets mid-chain.  
 * Restore Time Overhead (RTO Impact) A full restore from a single Full backup is a direct stream. A restore from an incremental chain requires `gprestore` to parse multiple metadata files, stitch together pointers across daily snapshots, and reconstruct tables layer-by-layer, which can increase Recovery Time Objective (RTO).
@@ -79,7 +79,7 @@ A common baseline is a **weekly full plus daily incrementals**, but the RA does 
 | Full vs incremental cadence | Proportion of append-optimized vs heap data, and change rate between backups. |
 | Backup frequency | Recovery Point Objective (RPO): tighter RPO -> more frequent backups. |
 | Retention depth | Recovery window needed, plus any compliance requirement. Retained per whole set. |
-| DR cluster sizing | Recovery Time Objective (RTO) and cost tolerance (see 10.6). |
+| DR cluster sizing | Recovery Time Objective (RTO) and cost tolerance (see [Recovery Prerequisites](#recovery-prerequisites)). |
 | Storage target sizing | Dataset size x retention x change rate, less any target-side dedup/compression. |
 
 Retention operates on **whole sets**: a restore needs the base full plus every intervening incremental, so a set is retained and archived as a unit and a missing link breaks the chain from that point on.
@@ -105,7 +105,7 @@ Retention operates on **whole sets**: a restore needs the base full plus every i
 | Dell EMC Data Domain (DD Boost / BoostFS) | Plugin or mounted filesystem, with dedup/compression and remote replication | Supported alternative where Data Domain is the enterprise standard. Vendor-specific. |
 | Local segment storage | Default, per-host filesystem | Only for backups promptly archived elsewhere. |
 
-S3 is the design default, as it sits on infrastructure independent of the vSAN cluster it protects, it is not tied to a vendor, and its plugin places each segment's data on the correct destination segment automatically. Data Domain adds inline dedupe and off-site replication and is a strong choice where already deployed. 
+S3 is the design default: it sits on infrastructure independent of the vSAN cluster it protects, it is not tied to a vendor, and its plugin places each segment's data on the correct destination segment automatically. Data Domain adds inline dedup and off-site replication and is a strong choice where already deployed. 
 
 ## Restore Scenarios
 
@@ -115,9 +115,9 @@ Restore runs through `gprestore`, which loads metadata via the coordinator and d
 | :---- | :---- | :---- | :---- |
 | Same running cluster | Logical recovery (dropped table, bad ETL) | Unchanged | Filtered restore of affected objects. Fastest, most common. |
 | Same-shape replacement | Cluster lost, new cluster rebuilt with same layout | Matches source | Standard full same-size restore, no redistribution. |
-| Differently-sized cluster | DR onto smaller/cheaper hardware, or migration | Differs from source | Resize restore (--resize-cluster). Redistributes data, see 10.7. |
+| Differently-sized cluster | DR onto smaller/cheaper hardware, or migration | Differs from source | Resize restore (--resize-cluster). Redistributes data, see [Workflow: Resize and Restore to a Differently-Sized Cluster (Scenario 3)](#workflow-resize-and-restore-to-a-differently-sized-cluster-scenario-3). |
 
-Scenario 1 recovers from exactly what vSAN cannot help with. Scenario 2 is the simplest DR path and the reason many keep a same-shape standby. Scenario 3 is what lets a DR target be sized differently from production, and it is detailed as a workflow in 10.7.
+Scenario 1 recovers from exactly what vSAN cannot help with. Scenario 2 is the simplest DR path and the reason many keep a same-shape standby. Scenario 3 is what lets a DR target be sized differently from production, and it is detailed as a workflow in [Workflow: Resize and Restore to a Differently-Sized Cluster (Scenario 3)](#workflow-resize-and-restore-to-a-differently-sized-cluster-scenario-3).
 
 ## Recovery Prerequisites
 
@@ -125,7 +125,7 @@ For any restore to succeed, the destination must meet the following. This is the
 
 | Prerequisite | Requirement | Must match the source? |
 | :---- | :---- | :---- |
-| Greenplum major version | Same major version as the backup | Yes. Cross-version is a migration capability, not a DR path. |
+| Greenplum major version | Same major version as the backup | Yes. Cross-version is a migration capability, not a DR path. |
 | Backup/restore tooling | Recent enough to support the operation (resize restore needs current tooling) | Yes (version floor) |
 | Storage capacity | Enough to hold the restored data | Adequate, not identical |
 | Compute / memory | Enough to run the workload, sized per [vSphere Cluster and Compute Design](./vsphere-cluster-design.md#vsphere-cluster-and-compute-design) and [Storage Architecture - vSAN & vSAN Storage Cluster](./storage-architecture.md#storage-architecture-vsan-vsan-storage-cluster) | Adequate, not identical |
@@ -138,9 +138,9 @@ The short version: the recovery cluster must be a **capacity-adequate, same-majo
 ## Workflow: Resize and Restore to a Differently-Sized Cluster (Scenario 3)
 
 This is the Scenario 3 DR / migration path: a backup taken on the source cluster is restored onto a separate cluster with a different segment count, using the S3 plugin so that per-segment placement is automatic.  
-The local-backup equivalent requires an operator to manually relocate every segment's files onto the correct destination segment following the tool's mapping rules, it is slow and error-prone at scale, and it is the direct reason this architecture standardizes on the S3 plugin path. Local resize restore is therefore noted only as a fallback and is not detailed here.
+The local-backup equivalent requires an operator to manually relocate every segment's files onto the correct destination segment following the tool's mapping rules; it is slow and error-prone at scale, and it is the direct reason this architecture standardizes on the S3 plugin path. Local resize restore is therefore noted only as a fallback and is not detailed here.
 
-**Prerequisites (from 10.6), plus:**
+**Prerequisites (from [Recovery Prerequisites](#recovery-prerequisites)), plus:**
 
 * Backup was taken with `--leaf-partition-data` where partitioned tables are involved.  
 * The same S3 plugin configuration (bucket, credentials, endpoint) is available on the destination cluster. See Appendix A.
