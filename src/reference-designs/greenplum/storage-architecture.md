@@ -20,7 +20,7 @@ Each Greenplum VM separates its I/O onto dedicated VMDKs, and each VMDK gets a s
 
 | Disk Type | VMDK | FTT  | RAID | Justification |
 | ----- | ----- | ----- | ----- | ----- |
-| OS | Dedicated | 1 | RAID-1 or RAID-5 | Boot, binaries, logs. Low I/O intensity. Separate from database for management simplicity. Fast recovery; no query impact if degraded |
+| OS | Dedicated | 1 | RAID-1 or RAID-5 | Boot, binaries, logs. Low I/O intensity. Separate from database for management simplicity. Fast recovery; no query impact if degraded. |
 | Segment Data | Dedicated | 2 recommended (1 acceptable for small or non-critical) | RAID-6 for FTT=2 (RAID-5 for FTT=1) | Primary user data: large sequential reads, mixed writes, latency-sensitive. This is the only copy of the data in a mirrorless design, so the FTT choice is the entire data-protection story. **See the FTT discussion below.** |
 | WAL | Dedicated | 1 | RAID-1 | PostgreSQL WAL: small, synchronous, fsync-heavy writes that are extremely latency-sensitive, where a single slow fsync stalls queries cluster-wide. RAID-1 minimizes write-path fan-out and gives the lowest, most predictable fsync latency. RAID-5 is deliberately not used here because parity read-modify-write penalizes exactly this small-synchronous-write pattern. |
 | Temp | Dedicated | 1 recommended  (0 as an explicit optimization) | RAID-1  (RAID-0 for FTT=0) | Hash joins, sorts, and spills: bursty, large, short-lived, and fully reconstructable from base tables. FTT=1 keeps spill behavior consistent with the rest of the failure model. FTT=0 saves write overhead but adds a new failure surface.  **See the temp discussion below.** |
@@ -28,7 +28,7 @@ Each Greenplum VM separates its I/O onto dedicated VMDKs, and each VMDK gets a s
 **Note:** 
 
 * These host-count minimums are why the production baseline is six hosts ([Host Count and Configuration Model](./vsphere-cluster-design.md#host-count-and-configuration-model)): FTT=2 via RAID-6, the efficient way to tolerate a failure during a rebuild, is only achievable at six hosts or more. A four-host cluster is limited to FTT=1 and is therefore positioned for PoC and development rather than production.  
-* No performance implications when using erasure codes in the ESA. Refer to the [vSAN Space Efficiency](https://www.vmware.com/docs/vmw-vsan-space-efficiency) documentation for more details
+* No performance implications when using erasure codes in the ESA. Refer to the [vSAN Space Efficiency](https://www.vmware.com/docs/vmw-vsan-space-efficiency) documentation for more details.
 
 **On Write Ahead Log (WAL):** WAL is the one VMDK where the RAID choice is not a capacity-versus-performance preference but a correctness-of-design point. Its latency directly gates commit and query progress (see [Storage Access Patterns](./workload-characteristics.md#storage-access-patterns)), so it takes the lowest-latency, lowest-fan-out policy available, which is RAID-1.
 
@@ -88,7 +88,7 @@ Two ideas make the rest of this section readable.
 
 First, vSAN counts protection in terms of a **failure budget**: 
 
-* FTT=2 tolerates two concurrent component failures  
+* FTT=2 tolerates two concurrent component failures.  
 * FTT=1 tolerates one. 
 
 Second, the *scope* of a failure matters as much as the count. A single disk failure leaves the Greenplum VMs running and is handled purely in storage, whereas a host failure also takes down the VMs on that host and therefore engages the compute-recovery path from [Physical Host Failure and Recovery](./vsphere-cluster-design.md#physical-host-failure-and-recovery) at the same time. The scenarios below are organized around those two ideas.

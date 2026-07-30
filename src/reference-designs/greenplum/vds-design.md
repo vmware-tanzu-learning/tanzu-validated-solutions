@@ -32,7 +32,7 @@ In an environment that is already standardized on NSX, or where Greenplum sits i
 
 ## vSphere Distributed Switch Design for Greenplum
 
-This diagram shows the vSphere Distributed Switch (vDS) design used to support Greenplum workloads. The design follows a multi-NIC, multi-VLAN model to provide bandwidth isolation, fault tolerance, and scalability across management, storage, and database traffic. More details on the NIC Mapping and Traffic control is discussed in further sections
+This diagram shows the vSphere Distributed Switch (vDS) design used to support Greenplum workloads. The design follows a multi-NIC, multi-VLAN model to provide bandwidth isolation, fault tolerance, and scalability across management, storage, and database traffic. More details on the NIC Mapping and Traffic control is discussed in further sections.
 
 ![vSphere Distributed Switch (vDS) design for Greenplum](./images/vds-design-for-greenplum.png)
 
@@ -216,10 +216,10 @@ The six-uplink layout removes the shared-card risk by giving interconnect and vS
 
 | Portgroup | Active Uplink | Standby Uplink | Notes |
 | ----- | ----- | ----- | ----- |
-| PG-GP-Interconnect | vmnic2 | vmnic3 | Primary GP motion traffic. Dedicated high-bandwidth pair for motion operators |
-| PG-vSAN-Client  | vmnic4 | vmnic5 | vSAN vmkernel NICs. Dedicated high-bandwidth pair for storage IO |
-| PG-GP-Client | vmnic3 | vmnic2 | Client to coordinator. Primary on Card 2. Client traffic on interconnect pair (low priority via NIOC) |
-| PG-GP-DataOps | vmnic5 | vmnic4 | ETL/backup on vSAN pair (low priority, and rate-limited via NIOC) |
+| PG-GP-Interconnect | vmnic2 | vmnic3 | Primary GP motion traffic. Dedicated high-bandwidth pair for motion operators. |
+| PG-vSAN-Client  | vmnic4 | vmnic5 | vSAN vmkernel NICs. Dedicated high-bandwidth pair for storage IO. |
+| PG-GP-Client | vmnic3 | vmnic2 | Client to coordinator. Primary on Card 2. Client traffic on interconnect pair (low priority via NIOC). |
+| PG-GP-DataOps | vmnic5 | vmnic4 | ETL/backup on vSAN pair (low priority, and rate-limited via NIOC). |
 | PG-vMotion | vmnic1 | vmnic0 | vMotion vmkernel. Confined to lower-bandwidth NIC (Card 1). |
 | PG-Mgmt  | vmnic0 | vmnic1 | Mgmt vmk0. Confined to lower-bandwidth NIC (Card 1). |
 
@@ -263,10 +263,10 @@ Traffic between segment hosts on the interconnect network must therefore flow fr
 
 Abbreviations used below: 
 
-* Client for SQL clients, applications, and tools  
-* Coordinator and Standby for the coordinator VMs  
-* Segments for all segment hosts  
-* ETL for load and backup hosts  
+* Client for SQL clients, applications, and tools.  
+* Coordinator and Standby for the coordinator VMs.  
+* Segments for all segment hosts.  
+* ETL for load and backup hosts.  
 * Mgmt for the administration network.
 
 **Client and coordinator access (PG-GP-Client)**
@@ -274,7 +274,7 @@ Abbreviations used below:
 | Source | Destination | Port / Protocol | Description |
 | :---- | :---- | :---- | :---- |
 | Client | Coordinator | TCP 5432, libpq | SQL client connections. Configurable. |
-| Client | Standby | TCP 5432, libpq | Client listener on the standby, usually the same port |
+| Client | Standby | TCP 5432, libpq | Client listener on the standby, usually the same port. |
 
 **Interconnect and segment coordination (PG-GP-Interconnect)**
 
@@ -282,7 +282,7 @@ Abbreviations used below:
 | :---- | :---- | :---- | :---- |
 | Segments | Segments | UDP and TCP 1025-65535, dynamic | Interconnect tuple movement. Open across the full range within the segment. |
 | Coordinator | Segments | Varies, libpq | Coordinator-to-segment coordination. Ports per `gpstate -p`. |
-| Coordinator | Standby | TCP 1025-65535, gpsyncmaster | WAL replication to the standby coordinator |
+| Coordinator | Standby | TCP 1025-65535, gpsyncmaster | WAL replication to the standby coordinator. |
 
 **Note:** These flows stay within the isolated interconnect segment. Do not enumerate ports; permit the range.
 

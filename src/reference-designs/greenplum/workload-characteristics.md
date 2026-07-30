@@ -77,7 +77,7 @@ Greenplum is a CPU-intensive analytical engine whose executor is built to consum
 * Query runtime  
 * Memory pressure and spill behavior  
 * Network motion efficiency, and   
-* Overall cluster throughput
+* Overall cluster throughput.
 
 Key characteristics define this behavior:
 
@@ -162,7 +162,7 @@ Key attributes:
 
 The failure behavior is that congestion does not degrade Greenplum gracefully. When motion traffic is dropped or delayed, the affected operators stall, and because stages are synchronized, a stalled operator holds up the whole stage. A single congested NIC or oversubscribed uplink can therefore turn into a cluster wide performance problem, and queries may abort rather than slow cleanly.
 
-**Infrastructure implication:** For the interconnect, low loss and predictable latency matter as much as bandwidth. The network should be designed to behave in an effectively lossless way for interconnect traffic under bursty load. The vDS design, traffic-class separation, and teaming policy that deliver this are covered in [Virtual Distributed Switch (vDS) Design](./vds-design.md#virtual-distributed-switch-vds-design)
+**Infrastructure implication:** For the interconnect, low loss and predictable latency matter as much as bandwidth. The network should be designed to behave in an effectively lossless way for interconnect traffic under bursty load. The vDS design, traffic-class separation, and teaming policy that deliver this are covered in [Virtual Distributed Switch (vDS) Design](./vds-design.md#virtual-distributed-switch-vds-design).
 
 ## Failure Sensitivity
 
@@ -170,9 +170,9 @@ Greenplum's MPP model makes query execution sensitive to the health of every par
 
 The failure types worth calling out:
 
-* **CPU starvation.** Increases query duration on the affected segment  
+* **CPU starvation.** Increases query duration on the affected segment.  
 * **Transient network loss.** Can hang or fail motion operators, queries may abort.  
-* **Storage latency spikes.** Increases query duration on affected segments  
+* **Storage latency spikes.** Increases query duration on affected segments.  
 * **Host failure.** Takes its segments offline, so active queries using them fail. The cluster must then detect the failure, mark segments down, restart or recover the affected VMs, and resynchronize before normal service resumes.
 
 **Infrastructure implication:** Recovery mechanisms, including vSphere HA, DRS, and vSAN rebuild, must be designed and scheduled so they do not repeatedly interrupt motion-heavy queries. These behaviors and the recovery windows they imply are detailed in the high-availability topology section that follows and in [vSphere High Availability (HA)](./vsphere-cluster-design.md#vsphere-high-availability-ha) through [Impact on Query Execution](./vsphere-cluster-design.md#impact-on-query-execution), with storage rebuild considerations in [Storage Failure Behavior: Physical Disk Failure](./storage-architecture.md#storage-failure-behavior-physical-disk-failure).

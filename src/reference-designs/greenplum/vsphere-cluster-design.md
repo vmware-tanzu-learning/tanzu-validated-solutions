@@ -143,8 +143,8 @@ The scenario is that the Primary Coordinator VM crashes, or its ESXi host fails,
 
 * All client connections drop and all running queries abort at the moment of failure.  
 * After the operating system boots:   
-  * The postmaster process starts automatically   
-  * All required Greenplum Coordinator services are brought up   
+  * The postmaster process starts automatically.   
+  * All required Greenplum Coordinator services are brought up.   
   * The Coordinator reconnects to segment instances.   
   * The Fault Tolerance Service (FTS) continues normal probing of segments.
 
@@ -158,10 +158,10 @@ The scenario is that the Primary Coordinator VM crashes, or its ESXi host fails,
 
 **Operational requirement**
 
-* No manual DBA intervention is required in the normal case. If coordinator services are not configured to start automatically on boot, the operator runs `gpstart` to bring the cluster back up  
+* No manual DBA intervention is required in the normal case. If coordinator services are not configured to start automatically on boot, the operator runs `gpstart` to bring the cluster back up.  
 * DBAs may optionally:   
-  * Verify cluster health (for example, Coordinator availability, FTS status)   
-  * Confirm application connectivity   
+  * Verify cluster health (for example, Coordinator availability, FTS status).   
+  * Confirm application connectivity.   
   * Standby promotion is not required unless the Primary Coordinator fails to restart or is deemed permanently unavailable.
 
 #### Primary Coordinator Permanent Failure
@@ -177,7 +177,7 @@ System Behavior
 
 Required Administrative Action
 
-* Recovery is a controlled role transition, initiated with `gpactivatestandby`   
+* Recovery is a controlled role transition, initiated with `gpactivatestandby`.   
 * This promotes the Standby Coordinator to become the new Primary Coordinator.   
 * Application connection endpoints (DNS, virtual IP, or load balancer) must be updated to point to the new Primary Coordinator.
 
@@ -271,7 +271,7 @@ This is a deliberate design choice, not a limitation. Automatically retrying a f
 | Dedicated failover hosts  | Optional, recommended for most critical clusters  | Reserves whole hosts for HA restart rather than relying on spare capacity spread across busy hosts. |
 | VM restart priority  | Coordinator and Standby: High.  Segment VMs: Medium.  Utility VMs: Low  | Ensures the coordinators come up first, then segments, then everything else. |
 | VM / Application monitoring  | Disabled for Greenplum VMs  | Avoids infrastructure-driven restarts on transient database conditions. Greenplum services are managed by the database team. |
-| Host isolation response  | Leave VMs powered on (default recommendation).  Power off and restart as an option in validated environments | See below Notes |
+| Host isolation response  | Leave VMs powered on (default recommendation).  Power off and restart as an option in validated environments | See below Notes. |
 | Datastore heartbeating  | Use vSAN defaults; no additional heartbeat datastores | vSAN ESA/vSAN Storage Cluster is the main datastore considered in this RA; HA uses vSAN + mgmt network; no extra VMFS/NFS is required. Configure one or more *das.isolationaddress* values, so that transient vCenter/management issues do not trigger isolation when the host still has data-plane connectivity.  |
 
 Two areas regarding HA configuration and Host Isolation Response need more than a one-line setting, so they are expanded below.
@@ -281,7 +281,7 @@ Two areas regarding HA configuration and Host Isolation Response need more than 
 The capacity reserved for HA is not a spare pool that Greenplum can borrow against; it must be genuine, unused headroom, because Greenplum runs with zero CPU and memory overcommit. The reservation math from [Memory Management and Scheduling](#memory-management-and-scheduling) is what makes this work, because every Greenplum VM has a full memory reservation, HA can only restart a failed host's VMs if that much capacity genuinely exists elsewhere.
 
 * For 4-5 host clusters, configure   
-  * "Host failures cluster tolerates = 1" or define 1 dedicated failover host   
+  * "Host failures cluster tolerates = 1" or define 1 dedicated failover host.   
   * Capacity planning must assume N+1 with zero CPU/memory overcommit for Greenplum VMs.  
 * For 6+ host clusters, configure   
   * "Host failures cluster tolerates = 2" or 2 dedicated failover hosts, achieving N+2 redundancy.  
@@ -296,7 +296,7 @@ Since FTT=2 through RAID-6 requires six hosts, N+2 admission control is a proper
 **vSAN Storage Cluster and datastore heartbeat:**
 
 * For vSAN ESA/vSAN Storage Cluster clusters, you do not configure separate heartbeat datastores. HA uses vSAN itself plus the management network, no extra VMFS/NFS datastores are added purely for heartbeating.  
-* If the default gateway is not a reliable isolation check, configure one or more *das.isolationaddress* addresses 
+* If the default gateway is not a reliable isolation check, configure one or more *das.isolationaddress* addresses.
 
 **Host Isolation Response**
 
@@ -313,7 +313,7 @@ DRS is valuable to Greenplum for one thing above all: getting initial placement 
 | ----- | ----- | ----- |
 | DRS enabled  | Enabled, cluster-wide  | Required for initial placement and controlled balancing.  |
 | Automation level | Manual or Partially Automated | Accept DRS recommendations for initial placement. Avoid automatic runtime migrations.  |
-| Migration threshold | Low / Conservative | Minimize vMotion events. Preserve NUMA locality  |
+| Migration threshold | Low / Conservative | Minimize vMotion events. Preserve NUMA locality.  |
 | VM-level DRS overrides  | Override GP VMs to Manual/Partially Automated  | Isolates the Greenplum VMs from any more aggressive cluster-wide DRS policy. |
 
 This maps back to the workload characteristics directly. From the [Concurrency and Parallelism](./workload-characteristics.md#concurrency-and-parallelism) and [Network Traffic Characteristics](./workload-characteristics.md#network-traffic-characteristics) sections, a runtime vMotion breaks the NUMA locality that segment performance depends on and temporarily consumes the CPU and network headroom that motion-heavy queries need. From the [Why Generic Virtualization Defaults Fail](./workload-characteristics.md#why-generic-virtualization-defaults-fail) section, the generic "optimize for balance" behavior that suits mixed workloads is exactly what should not be applied to a Greenplum cluster.
@@ -326,7 +326,7 @@ When a physical host fails, several Greenplum VMs are lost together. vSphere HA 
 
 The storage layer does the decisive work underneath, because 
 
-* vSAN holds redundant components of every affected VM's storage on other hosts  
+* vSAN holds redundant components of every affected VM's storage on other hosts.  
 * Each restarted VM is served with its complete, current data despite the loss of the failed host. 
 
 Each restarted segment VM then recovers exactly as described in [Segment VM Restart Semantics](#segment-vm-restart-semantics), replaying its WAL from vSAN-backed storage and rejoining once FTS marks it up. The difference at host scale is orchestration rather than mechanism. Many VMs recover at once, the coordinators are restarted ahead of the segments by HA priority, and query interruption follows the [vSphere High Availability (HA)](#vsphere-high-availability-ha) through [Impact on Query Execution](#impact-on-query-execution) sections.

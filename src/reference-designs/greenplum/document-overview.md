@@ -1,7 +1,5 @@
 # Document Overview
 
-## Purpose
-
 This reference architecture defines the infrastructure design principles, configuration guidance, and tuning considerations required to run Tanzu Greenplum 7.x on VMware vSphere Foundation (VVF) 9 or VMware Cloud Foundation (VCF) 9. 
 
 The platform is designed to provide Tanzu Greenplum with: 
@@ -35,11 +33,13 @@ This architecture adopts a platform-integrated design philosophy; it harnesses t
 
 ## Intended Audience and Assumptions
 
-This document is intended for: 
+This document is intended for the following personas: 
 
-* Infrastructure and platform architects   
-* Database platform engineers   
-* Site Reliability Engineering (SRE) and operations teams 
+| Persona | Objective |
+| ----- | ----- |
+| Infrastructure and platform architects | Design vSphere and vSAN infrastructure that meets the performance, scalability, and resiliency requirements of production-grade Greenplum MPP deployments |
+| Database platform engineers | Deploy, configure, and operate Tanzu Greenplum clusters on the underlying vSphere and vSAN platform |
+| Site Reliability Engineering (SRE) and operations teams | Maintain the availability, performance, and operational health of Greenplum environments running on vSphere infrastructure |
 
 It assumes the reader has working knowledge of: 
 
