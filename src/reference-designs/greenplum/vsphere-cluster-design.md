@@ -125,7 +125,7 @@ It is equally important to be clear about what it does not do:
 * It does not perform database failover or segment recovery.  
 * It does not check Tanzu Greenplum cluster consistency before or after a restart.
 
-The conclusion is that vSphere HA is not a database HA mechanism. It reduces the time to restart a failed VM, and nothing more. Database-level recovery is handled by Tanzu Greenplum's own mechanisms, including the Fault Tolerance Server and, for mirrorless clusters, the high availability service introduced in [The Tanzu Greenplum High Availability Service for Mirrorless Clusters](./resilience-topology.md#the-greenplum-high-availability-service-for-mirrorless-clusters). This split is the responsibility boundary at the center of this section: the infrastructure restores VMs and capacity, and the database team owns cluster integrity and recovery.
+The conclusion is that vSphere HA is not a database HA mechanism. It reduces the time to restart a failed VM, and nothing more. Database-level recovery is handled by Tanzu Greenplum's own mechanisms, including the Fault Tolerance Server and, for mirrorless clusters, the high availability service introduced in [The Tanzu Greenplum High Availability Service for Mirrorless Clusters](./resilience-topology.md#the-tanzu-greenplum-high-availability-service-for-mirrorless-clusters). This split is the responsibility boundary at the center of this section: the infrastructure restores VMs and capacity, and the database team owns cluster integrity and recovery.
 
 ### Coordinator and Standby Semantics
 
