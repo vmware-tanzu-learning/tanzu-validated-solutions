@@ -5,14 +5,14 @@ on:
     
 jobs:
   wrapped-links-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: checkout repo content
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.8 
+          python-version: "3.13"
       - name: check for wrapped links
         run: |
           python tests/wrapped-links.py

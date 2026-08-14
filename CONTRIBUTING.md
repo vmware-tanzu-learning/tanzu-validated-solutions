@@ -43,7 +43,7 @@ Example:
 git remote add upstream https://github.com/vmware/@(project).git
 git checkout -b my-new-feature main
 git commit -a
-docker-compose run --rm tests
+docker compose run --rm tests
 git push origin my-new-feature
 ```
 

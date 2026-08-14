@@ -1,0 +1,25 @@
+# Options picked up by all tests
+[docs_general]
+content_root = "./src"
+excluded_files = [
+    "./src/VMwarePub.yaml",
+]
+excluded_directories = []
+
+# Options only picked up by the orphaned-content.py tests,
+# in addition to the docs_general options
+[orphaned_content]
+excluded_files = []
+excluded_directories = []
+# Files meant to be scanned for links, but not meant to be linked to
+unlinked_file_exceptions = []
+# TOC files that should, collectively, list all MD files
+toc_files_to_validate = [
+    "./src/toc.md",
+    "./src/toc-air-gap.md",
+    "./src/toc-edge.md",
+    "./src/toc-migration.md",
+    "./src/toc-tanzu-platform.md",
+    "./src/toc-tap.md",
+    "./src/toc-use-case.md"
+]

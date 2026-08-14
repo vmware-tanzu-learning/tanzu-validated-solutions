@@ -1,4 +1,4 @@
-FROM golang:1.17.7-buster
+FROM golang:1.24.0-bookworm
 
 # Needed in order to update since apk update configures tzdata.
 RUN ln -sf /usr/share/zoneinfo/UTC > /etc/localtime
@@ -11,10 +11,10 @@ RUN apt -y update
 RUN apt -y install docker git
 
 # Install Act.
-RUN go install "github.com/nektos/act@v0.2.25"
+RUN go install "github.com/nektos/act@v0.2.74"
 
 # Copy our documentation into the image.
 COPY . /app
 WORKDIR /app
 
-ENTRYPOINT [ "act", "-P", "ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest" ]
+ENTRYPOINT [ "act", "-P", "ubuntu-24.04=ghcr.io/catthehacker/ubuntu:act-latest" ]

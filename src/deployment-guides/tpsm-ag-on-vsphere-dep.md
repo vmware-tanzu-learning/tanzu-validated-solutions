@@ -335,7 +335,7 @@ Before enabling the Harbor Supervisor Service, it is required to first enable th
 
 The initial step involves uploading the Contour binaries to the Harbor image repository that was previously deployed. Follow the instructions below to upload the Contour binaries. Before uploading the Contour Binaries, create a public repo in Harbor.
 
-![](./img/tpsm-ag-on-vsphere/new-project-sup-svcs.png )
+![](./img/tpsm-ag-on-vsphere/new-project-sup-svcs.png)
 ​​  
 Ensure that the “`contour-v1.28.2.tar`” has been successfully copied to the Admin host. Then, execute the following commands from the Admin host to upload the contour package to the Harbor repository:
 
