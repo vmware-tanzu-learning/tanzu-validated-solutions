@@ -18,6 +18,7 @@ containerd
 CoreDNS
 CPUs
 CRD
+Daemonset
 datacenter
 datacenters
 DISA
@@ -73,6 +74,7 @@ proxying
 rainpole
 restic
 routable
+runtimes
 saas
 schedulable
 scrapable
