@@ -1,4 +1,4 @@
-# tanzu-validated-solutions
+# Tanzu Validated Solutions
 
 ## Branch/Build
 
@@ -12,12 +12,34 @@ No versioning is used, `main` contains latest always.
 
 This repository provides Reference Designs and Deployment Guides for Tanzu products. This content represents best-practices advice for designing and deploying Tanzu solutions to production environments.
 
-## Reference Designs
+## Current Reference Designs
 
-The current collection of published Reference Designs may be found in our [Table of Contents](./src/toc.md)
+### Tanzu Kubernetes for Operations (TKO)
 
-> **NOTE**: An appendix containing additional helpful documents such as
-> troubleshooting guides and recommended labs can be found [here](src/partials)
+- [TKO Reference Architecture 1.6](./src/reference-designs/index.md)
+- [TKO on Public Cloud Reference Designs and Deployment](./src/tko-cloud-section.md)
+    - [TKO on VMware Cloud on AWS Reference Design](./src/reference-designs/tko-on-vmc-aws.md)
+        - [Deploy TKOs on VMware Cloud on AWS](./src/deployment-guides/tko-in-vmc-aws.md)
+    - [TKO on AWS Reference Design](./src/reference-designs/tko-on-aws.md)
+        - [Deploy TKOs on AWS](./src/deployment-guides/tko-aws.md)
+    - [TKO on Microsoft Azure Reference Design](./src/reference-designs/tko-on-azure.md)
+        - [Deploy TKOs on Microsoft Azure](./src/deployment-guides/tko-on-azure.md)
+- [TKO on vSphere Reference Designs and Deployment](./src/tko-vsphere-section.md)
+    - [TKO on vSphere Reference Design](./src/reference-designs/tko-on-vsphere.md)
+        - [Deploy TKOs on vSphere](./src/deployment-guides/tko-on-vsphere.md)
+    - [TKO on vSphere with NSX-T Reference Design](./src/reference-designs/tko-on-vsphere-nsx.md)
+        - [Deploy TKO on VMware vSphere with VMware NSX-T](./src/deployment-guides/tko-on-vsphere-nsxt.md)
+- [TKO on vSphere with Tanzu Reference Designs and Deployment](./src/tko-vsphere-with-tanzu-section.md)
+    - [TKO using vSphere with Tanzu Reference Design](./src/reference-designs/tko-on-vsphere-with-tanzu.md)
+        - [Deploy TKOs using vSphere with Tanzu](./src/deployment-guides/tko-on-vsphere-with-tanzu.md)
+    - [TKO using vSphere with Tanzu on NSX-T Reference Design](./src/reference-designs/tko-on-vsphere-with-tanzu-nsxt.md)
+
+## Tanzu Kubernetes Grid (TKG)
+- [Authentication with Pinniped](./src/reference-designs/pinniped-with-tkg.md)
+- [Prepare External Identity Management](./src/deployment-guides/pinniped-with-tkg.md)
+- [Enable Data Protection on a Workload Cluster and Configure Backup](./src/deployment-guides/tkg-data-protection.md)
+
+> **NOTE**: An appendix containing additional helpful documents such as troubleshooting guides and recommended labs can be found [here](src/partials)
 
 ## Contributing
 
