@@ -4,7 +4,6 @@ This is the table of contents for the **Tanzu Data** *Reference Architecture* do
 
 - [Tanzu Data Reference Architecture](./reference-designs/index-tanzu-data.md)
   - [Tanzu GemFire on VMware Cloud Foundation](./reference-designs/gemfire-on-vsphere-ra.md)
-      - [Executive Summary](./reference-designs/gemfire/executive-summary.md)
       - [VCF Design Blueprints and Deployment Topologies](./reference-designs/gemfire/vcf-design-blueprints-and-deployment-topologies.md)
       - [Network Overview and Components](./reference-designs/gemfire/network-overview-and-components.md)
       - [Tanzu GemFire on VCF 9 Platform Architecture](./reference-designs/gemfire/tanzu-gemfire-on-vcf-9-platform-architecture.md)

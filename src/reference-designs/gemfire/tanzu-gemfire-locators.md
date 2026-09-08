@@ -10,7 +10,7 @@ A Locator performs two core functions. A concurrent service running inside the s
 ## <a id="split-brain-protection"></a> Locators and network-partition ("split-brain") protection
 
 Running two or more locators removes the Locator tier as a single point of failure for discovery and coordination. Locator redundancy alone does not prevent a split-brain. GemFire's network-partition detection, not locator redundancy, provides split-brain protection. The `enable-network-partition-detection` property enables this detection by default. Clusters that use partitioned or persistent regions require this detection to be enabled. Under this mechanism, the oldest member acts as the membership coordinator, preferably a Locator. Each member contributes a weight to quorum calculations: a Locator weighs 3, a cache server weighs 10, and the lead server weighs 15. If a single membership-view change causes a loss of 51 percent or more of the total member weight, GemFire declares a network partition. The losing side then shuts down to preserve consistency. Deploying multiple locators and at least three cache servers gives this weighting mechanism enough members to make a correct, deterministic decision.  
-For more information, see the [VMware Tanzu GemFire](https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-gemfire/10-1/gf/managing-network_partitioning-membership_coordinators_lead_members_and_weighting.html) documentation.
+For more information, see the [VMware Tanzu GemFire](https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-gemfire/10-3/gf/managing-network_partitioning-membership_coordinators_lead_members_and_weighting.html) documentation.
 
 ## <a id="locator-recommendations"></a> Recommendations for deploying Locators
 
