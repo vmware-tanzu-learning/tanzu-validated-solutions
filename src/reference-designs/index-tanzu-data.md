@@ -4,7 +4,7 @@ The Tanzu Data Reference Architecture documentation provides guides for deployin
 
 The Tanzu Data Reference Architecture documentation includes the following subjects:
 
-- [Deploy and Manage Tanzu GemFire on vSphere](./gemfire-on-vsphere-ra.md)
+- [Tanzu GemFire on VMware Cloud Foundation](./gemfire-on-vsphere-ra.md)
 - [Tanzu Greenplum on VMware Cloud Foundation](./greenplum/document-overview.md)
 - More reference architectures will be added, so check back for additions and updates to this document.
 
