@@ -12,7 +12,7 @@ To size a GemFire cluster effectively, follow these steps:
 
 1. Domain Object Sizing: Estimate the size of your domain objects, then calculate total memory requirements based on the number of entries.
 
-2. Estimating Total Memory and System Requirements: Use tools like the [sizing spreadsheet](https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-tanzu/data-solutions/tanzu-gemfire/10-1/gf/attachments-system_sizing_worksheet.xlsx) to estimate memory needs and system resources, accounting for GemFire region overhead.
+2. Estimating Total Memory and System Requirements: Use tools like the [sizing spreadsheet](https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-tanzu/data-solutions/tanzu-gemfire/10-3/gf/attachments-system_sizing_worksheet.xlsx) to estimate memory needs and system resources, accounting for GemFire region overhead.
 
    The sizing spreadsheet does not account for other overhead, but it provides a starting point.
 

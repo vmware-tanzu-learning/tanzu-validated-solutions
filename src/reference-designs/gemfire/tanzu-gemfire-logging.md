@@ -103,7 +103,7 @@ An example configuration file ships with the product distribution at `$GEMFIRE/c
 
 Adopting a custom configuration also means taking on its operational responsibilities. The `alter runtime --log-level` and `change loglevel` runtime controls work as-is with the default configuration. However, when you use a custom Log4j 2 configuration, `change loglevel` takes effect only if you started the member with the `geode.LOG_LEVEL_UPDATE_OCCURS=ALWAYS` system property.
 
-When customizing `log4j2.xml`, observe these product-specific caveats from the GemFire 10.3 [product documentation](https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-gemfire/10-1/gf/managing-logging-configuring_log4j2.html):
+When customizing `log4j2.xml`, observe these product-specific caveats from the GemFire 10.3 [product documentation](https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-gemfire/10-3/gf/managing-logging-configuring_log4j2.html):
 
 - Do not set `monitorInterval=` in the file.
 
