@@ -17,7 +17,7 @@ Each blueprint defines the logical layout of management components, workload dom
 
 This reference architecture uses the Multi Region topology.
 
-![image1](./images/image1.png)
+![VCF multi-region topology](./images/vcf-multi-region-topology.png)
 
 This topology delivers a clear and scalable foundation for Tanzu GemFire on VMware Cloud Foundation 9 (VCF9). This topology enables agile deployment of GemFire instances across multiple Availability Zones to ensure high availability and fault tolerance. This topology also supports seamless replication across regions to provide robust multi-site resiliency. The design meets the demands of environments that require predictable performance, continuous availability, and simplified operations, effectively supporting a multi-site resiliency model.  
 For more information on VCF topologies and blueprints, see the [VMware Cloud Foundation](https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints.html) documentation.

@@ -1,7 +1,7 @@
 # Tanzu GemFire Logical Architecture
 
 The following overview illustrates the logical architecture of VMware Tanzu GemFire deployed on VMware Cloud Foundation (VCF 9). It highlights how GemFire clusters distributed across multiple sites collaborate to deliver resilient, low-latency, and fault-tolerant data replication across geographically or logically separated environments.
-![image4](./images/image4.png)
+![Tanzu GemFire logical architecture](./images/gemfire-logical-architecture.png)
 
 - **Core GemFire Cluster and Data Topology**
 

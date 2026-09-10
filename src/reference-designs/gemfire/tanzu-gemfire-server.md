@@ -30,7 +30,7 @@ A region is a distributed, in-memory data structure similar to a map. Cache serv
 
 A Partitioned Region divides its data across multiple servers. Each server holds only a subset (a partition) of the data and, optionally, redundant copies of other servers' partitions for fault tolerance. Internally, the data is split into units of storage called buckets, which are spread across the members hosting the region.
 
-![image6](./images/image6.png)  
+![Partitioned region overview](./images/partitioned-region-overview.png)  
 The partitioned structure is invisible to the application. The region appears as a single logical dataset, fully accessible from any member, even if that member stores only part of the data locally. Memory usage is configurable per server per region. A cluster can host many partitioned regions, a server can host many regions at once, and partitioned and replicated regions can coexist in the same cluster.
 
 ### <a id="partitioned-summary"></a> Summary
@@ -51,7 +51,7 @@ GemFire handles reads and writes differently in partitioned regions with redunda
 
 - **Read operations** go to any member holding a copy, with the local cache favored. If a member has the entry locally, the member reads the entry directly. Otherwise, the member fetches the entry from another member that holds a copy, chosen at random. Favoring local copies lets read-intensive systems scale across members. In the figure, M1 reads three keys: key A from its own local copy, and keys C and D from other copy-holders selected at random.
 
-  ![image7](./images/image7.png)
+  ![Partitioned region HA read and write behavior](./images/partitioned-region-ha-read-write.png)
 
 - **Write operations**, such as put and create, go to the primary copy of the key. GemFire then distributes the write synchronously to all redundant copies. GemFire delivers events to members and clients according to their configured subscription attributes.
 

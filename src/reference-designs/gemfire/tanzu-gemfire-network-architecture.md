@@ -2,7 +2,7 @@
 
 The network architecture for Tanzu GemFire on VMware Cloud Foundation (VCF) 9 builds on modern NSX constructs such as Projects, Virtual Private Clouds (VPCs), and optionally the NSX Advanced Load Balancer (NSX ALB) to deliver a secure, scalable, and multi-tenant-ready design. Dedicated resource pools are created for GemFire components so that resources stay clearly separated and the deployment remains easy to operate.
 
-![image5](./images/image5.png)
+![Tanzu GemFire network architecture](./images/gemfire-network-architecture.png)
 
 You can deploy Tanzu GemFire clusters on VLAN-backed portgroups. However, this architecture uses NSX Overlay networks exclusively to maximize cloud-native agility and security.
 

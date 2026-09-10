@@ -1,6 +1,6 @@
 # Tanzu GemFire on VCF 9 Platform Architecture
 
- ![image3](./images/image3.png)
+ ![Tanzu GemFire on VCF 9 platform architecture](./images/gemfire-vcf9-platform-architecture.png)
 
 The following design illustrates the Platform Architecture of VMware Tanzu GemFire deployed on the VMware Cloud Foundation (VCF) platform, spanning multiple vSphere Workload Clusters that function as independent Availability Zones (AZs). This architecture demonstrates how GemFire achieves high availability. The deployment can withstand the failure of an entire AZ or even an entire region, while supporting a highly available, fault-tolerant Active–Standby topology suitable for mission-critical workloads.
 
