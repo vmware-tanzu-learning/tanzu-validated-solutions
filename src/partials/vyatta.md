@@ -25,7 +25,7 @@ VM for your specific guide. For example, if you are using the
 appropriate for this lab:
 
 ```sh
-DEPLOYMENT_GUIDE="tko-on-sphere.md" # <-- change this
+DEPLOYMENT_GUIDE="tko-on-vsphere.md" # <-- change this
 VM_NAME="tkg-router"
 govc vm.create -annotation="TKG Networking Fabric" \
   -c=2 -iso=isos/vyos.iso \
@@ -39,7 +39,7 @@ do \
   if test "$(wc -c <<< "$name")" -gt 12; then name=$(head -c 10 <<< "$name"); fi; \
   vlan="$(awk -F '|' '{print $4}' <<< "$net" | tr -d ' ')"; \
   cidr="$(awk -F '|' '{print $5}' <<< "$net" | sed -E 's/ +//' | tr -d ' ' | tr '/' '_')"; \
-  cmd="govc host.portgroup.add -vswitch vSwitch0 ${name}-${cidr}-${vlan}"; \
+  cmd="govc host.portgroup.add -vswitch vSwitch0 -vlan=${vlan} ${name}-${cidr}-${vlan}"; \
   echo "--> $cmd"; \
   $cmd; \
   govc host.portgroup.change -allow-promiscuous=true -forged-transmits=true -mac-changes=true "${name}-${cidr}-${vlan}"; \
@@ -346,3 +346,4 @@ save
 ```
 
 You can terminate your SSH session once finished.
+
